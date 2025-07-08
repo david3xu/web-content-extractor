@@ -167,6 +167,7 @@ make verify
 
 # Run a quick test
 make run
+conda activate mining_analytics && pre-commit run --all-files
 ```
 
 ### Basic Usage
