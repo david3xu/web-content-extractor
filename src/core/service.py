@@ -1,6 +1,7 @@
 """
 Core extraction service that orchestrates the extraction process.
 """
+
 from datetime import datetime
 
 import structlog
@@ -32,7 +33,7 @@ class ExtractionService:
 
     async def extract_and_classify(
         self, url: str, save_result: bool = False
-    ) -> ExtractionResult:
+    ) -> tuple[ExtractionResult, str]:
         """
         Main extraction workflow with enhanced error context.
         """
@@ -120,7 +121,7 @@ class ExtractionService:
                 correlation_id=str(correlation_id),
             )
 
-            return result
+            return result, content
 
         except Exception as e:
             logger.error(
@@ -137,3 +138,92 @@ class ExtractionService:
                 raise ContextualExtractionError(
                     f"Failed to extract content from {url}: {e}", context, cause=e
                 ) from e
+
+    async def crawl_and_extract(
+        self, start_url: str, max_pages: int = 15
+    ) -> ExtractionResult:
+        """Crawl multiple pages using existing extraction logic and aggregate results."""
+        visited_urls: set[str] = set()
+        urls_to_visit: list[str] = [start_url]
+        final_result: ExtractionResult | None = None
+
+        logger.info("crawling_started", start_url=start_url, max_pages=max_pages)
+
+        while urls_to_visit and len(visited_urls) < max_pages:
+            current_url = urls_to_visit.pop(0)
+            if current_url in visited_urls:
+                logger.debug("skipping_visited_url", url=current_url)
+                continue
+
+            visited_urls.add(current_url)
+            logger.info(
+                "extracting_page", url=current_url, pages_crawled=len(visited_urls)
+            )
+
+            try:
+                # Extract and classify content for the current page
+                page_result, content = await self.extract_and_classify(
+                    current_url, save_result=False
+                )
+
+                if final_result is None:
+                    final_result = page_result
+                else:
+                    final_result = final_result.merge_with(page_result)
+
+                # Discover new links for crawling
+                if self._link_parser:
+                    navigation_links = self._link_parser.find_navigation_links(
+                        content,
+                        current_url,
+                    )
+
+                    # Prioritise course or module specific pages first
+                    priority_keywords = (
+                        "module",
+                        "lesson",
+                        "course",
+                        "chapter",
+                        "part",
+                    )
+                    priority_links = [
+                        link
+                        for link in navigation_links
+                        if any(k in link.lower() for k in priority_keywords)
+                    ]
+                    other_links = [
+                        link for link in navigation_links if link not in priority_links
+                    ]
+
+                    ordered_links = priority_links + other_links
+
+                    for link in ordered_links:
+                        if link not in visited_urls and link not in urls_to_visit:
+                            urls_to_visit.append(link)
+
+            except ContextualExtractionError as e:
+                logger.warning("page_extraction_failed", url=current_url, error=str(e))
+            except Exception as e:
+                logger.error(
+                    "unexpected_error_during_crawl", url=current_url, error=str(e)
+                )
+
+        if final_result is None:  # Handle case where no pages were crawled successfully
+            final_result = ExtractionResult(
+                source_url=SourceUrl.from_string(start_url),
+                metadata=ExtractionMetadata(
+                    total_links_found=0,
+                    pdf_count=0,
+                    youtube_count=0,
+                    processing_time=ProcessingTime(0.0),
+                    correlation_id=CorrelationId.generate(),
+                ),
+            )
+
+        logger.info(
+            "crawling_completed",
+            start_url=start_url,
+            total_pages_crawled=len(visited_urls),
+            total_links_found=final_result.total_links,
+        )
+        return final_result

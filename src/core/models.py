@@ -1,6 +1,7 @@
 """
 Core domain models for the web content extractor.
 """
+
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -196,3 +197,44 @@ class ExtractionResult(BaseModel):
         document_bonus = len(self.pdf_links) * 10  # Bonus for documents
 
         return min(base_score + diversity_bonus + document_bonus, 100.0)
+
+    def merge_with(self, other: "ExtractionResult") -> "ExtractionResult":
+        """Merge multiple page results into a new ExtractionResult."""
+        merged_pdf_links = self.pdf_links + other.pdf_links
+        merged_youtube_links = self.youtube_links + other.youtube_links
+        merged_other_links = self.other_links + other.other_links
+
+        # Aggregate metadata
+        total_links = self.total_links + other.total_links
+        pdf_count = len(merged_pdf_links)
+        youtube_count = len(merged_youtube_links)
+
+        # Sum processing times
+        total_processing_time_seconds = (
+            self.metadata.processing_time.seconds
+            + other.metadata.processing_time.seconds
+            if self.metadata and other.metadata
+            else 0.0
+        )
+
+        merged_metadata = ExtractionMetadata(
+            total_links_found=total_links,
+            pdf_count=pdf_count,
+            youtube_count=youtube_count,
+            processing_time=ProcessingTime(total_processing_time_seconds),
+            correlation_id=CorrelationId.generate(),  # New correlation ID for the merged result
+            # page_title and user_agent are page-specific and not aggregated here
+            page_title=None,  # Clear page title for aggregated result
+            user_agent="WebExtractor/1.0 (Aggregated)",  # Indicate aggregated result
+        )
+
+        # Create a new ExtractionResult with merged data
+        merged_result = ExtractionResult(
+            source_url=self.source_url,  # Keep the original source URL, or decide on a different aggregation strategy
+            pdf_links=merged_pdf_links,
+            youtube_links=merged_youtube_links,
+            other_links=merged_other_links,
+            metadata=merged_metadata,
+        )
+
+        return merged_result

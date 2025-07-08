@@ -1,6 +1,7 @@
 """
 Core interfaces using protocols to define the contract between components.
 """
+
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -22,6 +23,10 @@ class LinkParser(Protocol):
 
     def parse_links(self, content: str, base_url: str) -> list[tuple[str, str]]:
         """Parse links from HTML content, return (url, text) tuples"""
+        ...
+
+    def find_navigation_links(self, content: str, base_url: str) -> list[str]:
+        """Find sub-pages to crawl from HTML content, return list of URLs"""
         ...
 
 

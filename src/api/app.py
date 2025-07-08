@@ -1,6 +1,7 @@
 """
 FastAPI application for web content extraction.
 """
+
 import time
 from typing import Any
 
@@ -147,7 +148,7 @@ async def extract(
     """
     try:
         # Extract content
-        result = await service.extract_and_classify(
+        result, content = await service.extract_and_classify(
             url=str(request.url), save_result=request.save_result
         )
 
@@ -158,9 +159,9 @@ async def extract(
             "pdf_count": len(result.pdf_links),
             "youtube_count": len(result.youtube_links),
             "other_count": len(result.other_links),
-            "processing_time_seconds": result.metadata.processing_time.seconds
-            if result.metadata
-            else 0,
+            "processing_time_seconds": (
+                result.metadata.processing_time.seconds if result.metadata else 0
+            ),
             "links": {
                 "pdf": [link.model_dump() for link in result.pdf_links],
                 "youtube": [link.model_dump() for link in result.youtube_links],

@@ -25,7 +25,8 @@ Choose **one** of the following workflows:
 pip install poetry
 
 # 2. Install dependencies (including dev dependencies)
-poetry install --with dev
+# Include API dependencies (FastAPI, Uvicorn) as well
+poetry install --with dev,api
 
 # 3. Activate Poetry environment (choose one method)
 # Method A: Use poetry run for each command
@@ -61,9 +62,8 @@ conda activate mining_analytics
 
 # 2. Tell Poetry to use the current environment
 poetry config virtualenvs.create false
-
-# 3. Install dependencies (including dev dependencies)
-poetry install --with dev
+# Install with API extras
+poetry install --with dev,api
 
 # 4. (Optional) Install pre-commit hooks
 make install-hooks
@@ -123,15 +123,25 @@ pip install poetry
 
 ### Step 3: Install Dependencies
 
-- **Poetry-only:**
-  ```bash
-  poetry install --with dev
-  ```
-- **Conda+Poetry:**
-  ```bash
-  poetry config virtualenvs.create false
-  poetry install --with dev
-  ```
+Choose **one** of the following methods:
+
+1. **Poetry (recommended)**
+
+   - **Poetry-only:**
+     ```bash
+     poetry install --with dev,api   # dev tools + FastAPI / Uvicorn
+     ```
+   - **Conda + Poetry:**
+     ```bash
+     poetry config virtualenvs.create false  # use current conda env
+     poetry install --with dev,api
+     ```
+
+2. **Pure pip / editable install (no Poetry)**
+   ```bash
+   pip install -e .          # installs CLI entry-point
+   pip install fastapi uvicorn[standard]  # add API dependencies
+   ```
 
 ### Step 4: Verify Environment
 

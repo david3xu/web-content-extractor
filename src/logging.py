@@ -1,11 +1,15 @@
 """
 Structured logging configuration for the application.
 """
+
 import logging
 import sys
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 from structlog.processors import CallsiteParameter
+from structlog.stdlib import BoundLogger
 
 
 def setup_logging(
@@ -26,7 +30,7 @@ def setup_logging(
     )
 
     # Configure structlog processors
-    processors = [
+    processors: list[Callable[..., Any]] = [
         structlog.stdlib.filter_by_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.stdlib.add_logger_name,
@@ -63,6 +67,6 @@ def setup_logging(
     structlog.contextvars.bind_contextvars(service=service_name)
 
 
-def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str | None = None) -> BoundLogger:
     """Get a logger instance with service context"""
     return structlog.get_logger(name)

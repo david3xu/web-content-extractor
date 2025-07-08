@@ -9,6 +9,8 @@ A professional-grade web content extraction tool that extracts and categorizes l
 - **🚀 Multiple Interfaces**: CLI, REST API, and Azure Functions
 - **☁️ Cloud Ready**: Deploy to Azure Functions or run locally with Docker
 - **📝 Multiple Output Formats**: JSON, Text, Markdown, and CSV
+- **📥 Automatic PDF Download**: Detected PDFs are downloaded to `output/pdfs/`
+- **🎞️ YouTube Manifest**: Unique YouTube URLs saved to `output/youtube_links.json`
 - **🔧 Configurable**: Environment-based configuration with validation
 - **📈 Structured Logging**: Production-ready logging with correlation IDs
 - **🧪 Comprehensive Testing**: Unit and integration tests with high coverage
@@ -138,6 +140,9 @@ web-content-extractor/
 │   ├── setup.sh                     # Setup script
 │   └── verify_setup.py              # Project verification
 ├── 📁 output/                       # Output directory
+│   ├── 📁 pdfs/                     # Downloaded PDF files
+│   ├── youtube_links.json          # JSON array of YouTube URLs
+│   └── raw_page_content.html       # Raw HTML snapshot (per run)
 ├── pyproject.toml                   # Poetry configuration
 ├── Makefile                         # Development commands
 ├── README.md                        # This file
@@ -178,6 +183,9 @@ web-extractor extract https://example.com
 
 # Save results to file
 web-extractor extract https://example.com --output results.json --save
+
+# Crawl and automatically download PDFs / save YouTube list
+web-extractor crawl https://tutorial.nlp-tlp.org/ai-engineer-bootcamp --max-pages 15
 
 # Use different output format
 web-extractor extract https://example.com --format markdown
