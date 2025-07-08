@@ -1,16 +1,16 @@
 """
 Link classifier implementation.
 """
-from typing import List, Tuple, Pattern, Dict
 import re
+from datetime import datetime
+from re import Pattern
 
 import structlog
 
+from src.core.exceptions import ExtractionContext, LinkClassificationError
 from src.core.interfaces import LinkClassifier
 from src.core.models import ExtractedLink, LinkType
-from src.core.exceptions import LinkClassificationError, ExtractionContext
 from src.core.value_objects import CorrelationId
-from datetime import datetime
 
 logger = structlog.get_logger(__name__)
 
@@ -22,22 +22,20 @@ class RegexLinkClassifier(LinkClassifier):
     Implements the LinkClassifier protocol.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Regex patterns for identifying link types
-        self._pdf_patterns: List[Pattern] = [
-            re.compile(r'\.pdf$', re.I),  # File extension
-            re.compile(r'/pdf/', re.I),   # URL path
-            re.compile(r'pdf', re.I)      # Text content
+        self._pdf_patterns: list[Pattern[str]] = [
+            re.compile(r"\.pdf$", re.I)  # File extension
         ]
 
-        self._youtube_patterns: List[Pattern] = [
-            re.compile(r'youtube\.com/watch', re.I),    # YouTube watch
-            re.compile(r'youtu\.be/', re.I),            # YouTube short URL
-            re.compile(r'youtube\.com/embed/', re.I),   # YouTube embed
-            re.compile(r'youtube\.com/playlist', re.I)  # YouTube playlist
+        self._youtube_patterns: list[Pattern[str]] = [
+            re.compile(r"youtube\.com/watch", re.I),  # YouTube watch
+            re.compile(r"youtu\.be/", re.I),  # YouTube short URL
+            re.compile(r"youtube\.com/embed/", re.I),  # YouTube embed
+            re.compile(r"youtube\.com/playlist", re.I),  # YouTube playlist
         ]
 
-    def classify_links(self, links: List[Tuple[str, str]]) -> List[ExtractedLink]:
+    def classify_links(self, links: list[tuple[str, str]]) -> list[ExtractedLink]:
         """
         Classify links using factory methods and enhanced error context.
         """
@@ -45,6 +43,7 @@ class RegexLinkClassifier(LinkClassifier):
             classified_links = []
 
             for url, text in links:
+                logger.debug("classifying_link", url=url, text=text)
                 try:
                     # Use factory methods instead of direct construction
                     if any(pattern.search(url) for pattern in self._pdf_patterns):
@@ -68,7 +67,7 @@ class RegexLinkClassifier(LinkClassifier):
                 total=len(classified_links),
                 pdf_count=type_counts.get(LinkType.PDF, 0),
                 youtube_count=type_counts.get(LinkType.YOUTUBE, 0),
-                other_count=type_counts.get(LinkType.OTHER, 0)
+                other_count=type_counts.get(LinkType.OTHER, 0),
             )
 
             return classified_links
@@ -78,7 +77,7 @@ class RegexLinkClassifier(LinkClassifier):
             context = ExtractionContext(
                 url="batch_classification",
                 correlation_id=CorrelationId.generate(),
-                start_time=datetime.now()
+                start_time=datetime.now(),
             )
             raise LinkClassificationError("Failed to classify links", context, e) from e
 
@@ -93,7 +92,7 @@ class RegexLinkClassifier(LinkClassifier):
         Returns:
             LinkType enum value
         """
-        # Check for PDF links (URL first, then text)
+        # Check for PDF links (URL only)
         for pattern in self._pdf_patterns:
             if pattern.search(url):
                 return LinkType.PDF
@@ -103,15 +102,10 @@ class RegexLinkClassifier(LinkClassifier):
             if pattern.search(url):
                 return LinkType.YOUTUBE
 
-        # Last check for PDF in text
-        for pattern in self._pdf_patterns:
-            if text and pattern.search(text):
-                return LinkType.PDF
-
         # Default to other
         return LinkType.OTHER
 
-    def _count_by_type(self, links: List[ExtractedLink]) -> Dict[LinkType, int]:
+    def _count_by_type(self, links: list[ExtractedLink]) -> dict[LinkType, int]:
         """
         Count links by type.
 

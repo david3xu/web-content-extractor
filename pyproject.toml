@@ -14,6 +14,7 @@ pydantic = "^2.4.0"         # Settings and validation
 structlog = "^23.1.0"       # Structured logging
 typer = {extras = ["all"], version = "^0.9.0"}  # Modern CLI framework
 pyyaml = "^6.0"             # Configuration file support
+pydantic-settings = "^2.10.1"
 
 [tool.poetry.group.api.dependencies]
 fastapi = "^0.104.0"        # Web API framework
@@ -34,6 +35,10 @@ pre-commit = "^3.4.0"
 
 [tool.poetry.scripts]
 web-extractor = "src.cli:main"
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs"]
+skips = ["B101", "B601"]
 
 [tool.black]
 line-length = 88
@@ -84,6 +89,7 @@ disallow_incomplete_defs = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+implicit_reexport = true
 no_implicit_optional = true
 show_error_codes = true
 strict_equality = true

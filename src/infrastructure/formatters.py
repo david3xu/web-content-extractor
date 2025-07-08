@@ -1,21 +1,21 @@
 """
 Formatters for extraction result output in different formats.
 """
-import json
+from collections.abc import Callable
 from enum import Enum
-from typing import Dict, Callable
 
 import structlog
 
-from src.core.interfaces import ResultFormatter
-from src.core.models import ExtractionResult, LinkType
 from src.core.exceptions import ResultFormattingError
+from src.core.interfaces import ResultFormatter
+from src.core.models import ExtractionResult
 
 logger = structlog.get_logger(__name__)
 
 
 class OutputFormat(str, Enum):
     """Supported output formats"""
+
     JSON = "json"
     TEXT = "text"
     MARKDOWN = "markdown"
@@ -29,9 +29,9 @@ class OutputFormatters(ResultFormatter):
     Implements the ResultFormatter protocol.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Register formatters
-        self._formatters: Dict[str, Callable[[ExtractionResult], str]] = {
+        self._formatters: dict[str, Callable[[ExtractionResult], str]] = {
             OutputFormat.JSON: self._format_json,
             OutputFormat.TEXT: self._format_text,
             OutputFormat.MARKDOWN: self._format_markdown,
@@ -66,7 +66,9 @@ class OutputFormatters(ResultFormatter):
 
         except Exception as e:
             logger.error("formatting_failed", format=format_type, error=str(e))
-            raise ResultFormattingError(f"Failed to format result as {format_type}: {e}") from e
+            raise ResultFormattingError(
+                f"Failed to format result as {format_type}: {e}"
+            ) from e
 
     def _format_json(self, result: ExtractionResult) -> str:
         """Format result as JSON"""
@@ -92,7 +94,9 @@ class OutputFormatters(ResultFormatter):
         if result.metadata:
             lines.append("")
             lines.append("Extraction Information:")
-            lines.append(f"- Processing Time: {result.metadata.processing_time_seconds:.2f} seconds")
+            lines.append(
+                f"- Processing Time: {result.metadata.processing_time.seconds:.2f} seconds"
+            )
             lines.append(f"- Extraction Date: {result.metadata.extraction_timestamp}")
 
         return "\n".join(lines)
@@ -122,8 +126,12 @@ class OutputFormatters(ResultFormatter):
         if result.metadata:
             lines.append("")
             lines.append("## Extraction Information")
-            lines.append(f"- **Processing Time:** {result.metadata.processing_time_seconds:.2f} seconds")
-            lines.append(f"- **Extraction Date:** {result.metadata.extraction_timestamp}")
+            lines.append(
+                f"- **Processing Time:** {result.metadata.processing_time.seconds:.2f} seconds"
+            )
+            lines.append(
+                f"- **Extraction Date:** {result.metadata.extraction_timestamp}"
+            )
 
         return "\n".join(lines)
 

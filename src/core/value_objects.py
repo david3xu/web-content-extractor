@@ -2,18 +2,20 @@
 Value objects for domain-driven design.
 """
 from dataclasses import dataclass
-from typing import Optional
-from urllib.parse import urlparse
+
 from pydantic import HttpUrl
 
 
 @dataclass(frozen=True)
 class SourceUrl:
     """Value object for source URLs with domain logic."""
+
     value: HttpUrl
 
     def get_domain(self) -> str:
         """Extract domain name."""
+        if self.value.host is None:
+            return ""  # Or handle this case as appropriate, e.g., raise ValueError
         return self.value.host.replace("www.", "")
 
     def is_secure(self) -> bool:
@@ -22,6 +24,8 @@ class SourceUrl:
 
     def get_path_depth(self) -> int:
         """Calculate URL path depth for complexity analysis."""
+        if self.value.path is None:
+            return 0  # Or handle this case as appropriate
         path = self.value.path.strip("/")
         return len(path.split("/")) if path else 0
 
@@ -34,9 +38,10 @@ class SourceUrl:
 @dataclass(frozen=True)
 class ProcessingTime:
     """Value object for processing time with business logic."""
+
     seconds: float
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.seconds <= 0:
             raise ValueError("Processing time must be positive")
 
@@ -63,9 +68,10 @@ class ProcessingTime:
 @dataclass(frozen=True)
 class CorrelationId:
     """Value object for request correlation tracking."""
+
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.value or len(self.value) < 8:
             raise ValueError("Correlation ID must be at least 8 characters")
 
@@ -73,6 +79,7 @@ class CorrelationId:
     def generate(cls) -> "CorrelationId":
         """Generate a new correlation ID."""
         import uuid
+
         return cls(str(uuid.uuid4())[:8])
 
     def __str__(self) -> str:

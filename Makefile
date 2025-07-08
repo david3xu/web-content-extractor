@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test run docker clean lint format dev
+.PHONY: help setup test run docker clean lint format dev fix install-hooks
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -8,8 +8,8 @@ help: ## Show this help message
 setup: ## Install dependencies and setup development environment
 	@echo "🚀 Setting up development environment..."
 	pip install poetry
-	poetry install
-	poetry run pre-commit install
+	poetry install --with dev
+	poetry run pre-commit install || echo "⚠️  Pre-commit installation failed, but setup continues..."
 	mkdir -p output logs
 	@echo "✅ Setup complete! Run 'make run' to test extraction"
 
@@ -27,7 +27,7 @@ test-enhancements: ## Test Step 1-3 improvements
 
 run: ## Run extraction example
 	@echo "🔍 Running extraction example..."
-	poetry run python -c "import asyncio; from src.cli import demo; asyncio.run(demo())"
+	poetry run python -c "import asyncio; from src.cli import demo; asyncio.run(demo(url='https://tutorial.nlp-tlp.org/ai-engineer-bootcamp'))"
 
 lint: ## Check code quality
 	@echo "🔍 Checking code quality..."
@@ -55,10 +55,18 @@ dev: ## Start development server
 
 verify: ## Verify project setup
 	@echo "🔍 Verifying project setup..."
-	python scripts/verify_setup.py
+	poetry run python scripts/verify_setup.py
 
 verify-improvements: format lint test-step-improvements ## Verify all improvements
 	@echo "✅ All improvements verified!"
 
 verify-enhancements: format lint test-enhancements ## Verify model improvements
 	@echo "✅ Model enhancements verified!"
+
+fix: ## Fix common setup issues
+	@echo "🔧 Fixing setup issues..."
+	python scripts/fix_setup.py
+
+install-hooks: ## Install pre-commit hooks
+	@echo "🔧 Installing pre-commit hooks..."
+	poetry run pre-commit install

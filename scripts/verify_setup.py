@@ -2,12 +2,12 @@
 """
 Verification script to check if the project is properly set up.
 """
-import sys
 import importlib
+import sys
 from pathlib import Path
 
 
-def check_imports():
+def check_imports() -> list[str]:
     """Check if all required modules can be imported."""
     print("🔍 Checking imports...")
     print("  ⚠️  Note: Import checks require dependencies to be installed")
@@ -41,7 +41,7 @@ def check_imports():
     return failed_imports
 
 
-def check_files():
+def check_files() -> list[str]:
     """Check if all required files exist."""
     print("\n📁 Checking file structure...")
 
@@ -73,7 +73,7 @@ def check_files():
     return missing_files
 
 
-def check_directories():
+def check_directories() -> list[str]:
     """Check if all required directories exist."""
     print("\n📂 Checking directory structure...")
 
@@ -104,7 +104,7 @@ def check_directories():
     return missing_dirs
 
 
-def main():
+def main() -> int:
     """Main verification function."""
     print("🚀 Web Content Extractor - Setup Verification")
     print("=" * 50)

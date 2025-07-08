@@ -3,15 +3,13 @@ Structured logging configuration for the application.
 """
 import logging
 import sys
-from typing import Optional
 
 import structlog
+from structlog.processors import CallsiteParameter
 
 
 def setup_logging(
-    level: str = "INFO",
-    json_logs: bool = False,
-    service_name: str = "web-extractor"
+    level: str = "INFO", json_logs: bool = False, service_name: str = "web-extractor"
 ) -> None:
     """
     Configure structured logging for the application.
@@ -24,9 +22,7 @@ def setup_logging(
 
     # Configure stdlib logging
     logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=getattr(logging, level.upper())
+        format="%(message)s", stream=sys.stdout, level=getattr(logging, level.upper())
     )
 
     # Configure structlog processors
@@ -44,9 +40,7 @@ def setup_logging(
     # Add service name to all logs
     processors.append(
         structlog.processors.CallsiteParameterAdder(
-            {structlog.processors.CallsiteParameterAdder.pathname,
-             structlog.processors.CallsiteParameterAdder.func_name,
-             structlog.processors.CallsiteParameterAdder.lineno}
+            {CallsiteParameter.FILENAME, CallsiteParameter.FUNC_NAME}
         )
     )
 
@@ -69,6 +63,6 @@ def setup_logging(
     structlog.contextvars.bind_contextvars(service=service_name)
 
 
-def get_logger(name: Optional[str] = None) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Get a logger instance with service context"""
     return structlog.get_logger(name)

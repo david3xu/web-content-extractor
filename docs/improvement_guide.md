@@ -162,7 +162,7 @@ class WebContentExtractor:
         self.content_scraper = ContentScrapingService(self.http_client)
         self.link_classifier = LinkClassifierService()
         self.output_formatter = OutputFormatterService(output_directory)
-    
+
     def extract_and_categorize(self, url: str):
         # Orchestrates everything - violates Single Responsibility Principle
         # Synchronous - blocks on network calls
@@ -237,7 +237,7 @@ class ExtractedLink(BaseModel):
     text: str = Field(..., min_length=1, description="Link text content")
     link_type: LinkType
     is_valid: bool = Field(default=True, description="Whether link is accessible")
-    
+
     @validator('text')
     def text_must_not_be_empty(cls, v):
         if not v.strip():
@@ -259,12 +259,12 @@ class ExtractionResult(BaseModel):
     youtube_links: List[ExtractedLink] = Field(default_factory=list)
     other_links: List[ExtractedLink] = Field(default_factory=list)
     metadata: Optional[ExtractionMetadata] = None
-    
+
     @property
     def total_links(self) -> int:
         """Total number of links across all categories"""
         return len(self.pdf_links) + len(self.youtube_links) + len(self.other_links)
-    
+
     @property
     def summary(self) -> dict:
         """Summary statistics for quick overview"""
@@ -298,11 +298,11 @@ logger = structlog.get_logger()
 class ExtractionService:
     """
     Core business logic for web content extraction.
-    
+
     Orchestrates the extraction process without knowing about
     implementation details of HTTP clients, parsers, or storage.
     """
-    
+
     def __init__(
         self,
         content_extractor: ContentExtractor,
@@ -314,45 +314,45 @@ class ExtractionService:
         self._link_parser = link_parser
         self._link_classifier = link_classifier
         self._result_storage = result_storage
-        
+
     async def extract_and_classify(self, url: str, save_result: bool = False) -> ExtractionResult:
         """
         Main extraction workflow.
-        
+
         Args:
             url: Target URL to extract links from
             save_result: Whether to persist the result
-            
+
         Returns:
             Complete extraction result with classified links
-            
+
         Raises:
             ExtractionError: If any step in the process fails
         """
         start_time = time.time()
-        
+
         logger.info("extraction_started", url=url)
-        
+
         try:
             # Step 1: Extract content
             content = await self._content_extractor.extract_content(url)
             logger.debug("content_extracted", url=url, content_length=len(content))
-            
+
             # Step 2: Parse links
             raw_links = self._link_parser.parse_links(content, url)
             logger.debug("links_parsed", url=url, link_count=len(raw_links))
-            
+
             # Step 3: Classify links
             classified_links = self._link_classifier.classify_links(raw_links)
             logger.debug("links_classified", url=url, classified_count=len(classified_links))
-            
+
             # Step 4: Create result
             processing_time = time.time() - start_time
             metadata = ExtractionMetadata(
                 total_links_found=len(classified_links),
                 processing_time_seconds=processing_time
             )
-            
+
             result = ExtractionResult(
                 source_url=url,
                 pdf_links=[link for link in classified_links if link.link_type == "pdf"],
@@ -360,19 +360,19 @@ class ExtractionService:
                 other_links=[link for link in classified_links if link.link_type == "other"],
                 metadata=metadata
             )
-            
+
             # Step 5: Optionally save result
             if save_result and self._result_storage:
                 storage_location = await self._result_storage.save_result(result)
                 logger.info("result_saved", url=url, location=storage_location)
-            
-            logger.info("extraction_completed", 
-                       url=url, 
+
+            logger.info("extraction_completed",
+                       url=url,
                        total_links=result.total_links,
                        processing_time=processing_time)
-            
+
             return result
-            
+
         except Exception as e:
             logger.error("extraction_failed", url=url, error=str(e))
             raise ExtractionError(f"Failed to extract content from {url}: {e}") from e
@@ -404,7 +404,7 @@ from .settings import Settings
 class ServiceContainer:
     """
     Simple dependency injection container.
-    
+
     Wires together all components with their dependencies.
     Makes testing easy by allowing dependency substitution.
     """
@@ -412,7 +412,7 @@ class ServiceContainer:
     link_parser: LinkParser
     link_classifier: LinkClassifier
     result_storage: Optional[ResultStorage] = None
-    
+
     def create_extraction_service(self) -> ExtractionService:
         """Create a fully configured extraction service"""
         return ExtractionService(
@@ -421,13 +421,13 @@ class ServiceContainer:
             link_classifier=self.link_classifier,
             result_storage=self.result_storage
         )
-    
+
     @classmethod
     def create_default(cls, settings: Optional[Settings] = None) -> 'ServiceContainer':
         """Create container with default production implementations"""
         if settings is None:
             settings = Settings()
-            
+
         return cls(
             content_extractor=HttpContentExtractor(
                 timeout=settings.http_timeout,
@@ -437,12 +437,12 @@ class ServiceContainer:
             link_classifier=RegexLinkClassifier(),
             result_storage=FileResultStorage(settings.output_directory)
         )
-    
+
     @classmethod
     def create_for_testing(cls) -> 'ServiceContainer':
         """Create container with test-friendly implementations"""
         from .adapters.mock import MockContentExtractor, MockResultStorage
-        
+
         return cls(
             content_extractor=MockContentExtractor(),
             link_parser=BeautifulSoupLinkParser(),
@@ -488,11 +488,11 @@ logger = structlog.get_logger()
 class HttpContentExtractor:
     """
     Async HTTP content extractor using httpx.
-    
+
     Provides non-blocking HTTP requests with proper error handling,
     retries, and timeout management.
     """
-    
+
     def __init__(
         self,
         timeout: float = 30.0,
@@ -502,46 +502,46 @@ class HttpContentExtractor:
         self._timeout = timeout
         self._max_retries = max_retries
         self._user_agent = user_agent
-        
+
     async def extract_content(self, url: str) -> str:
         """
         Extract content from URL with retries and proper error handling.
-        
+
         Args:
             url: Target URL to extract content from
-            
+
         Returns:
             Raw HTML content as string
-            
+
         Raises:
             ContentExtractionError: If extraction fails after retries
         """
         headers = {"User-Agent": self._user_agent}
-        
+
         async with httpx.AsyncClient(
             timeout=self._timeout,
             headers=headers,
             follow_redirects=True
         ) as client:
-            
+
             for attempt in range(self._max_retries):
                 try:
-                    logger.info("http_request_started", 
-                              url=url, 
+                    logger.info("http_request_started",
+                              url=url,
                               attempt=attempt + 1,
                               max_retries=self._max_retries)
-                    
+
                     response = await client.get(url)
                     response.raise_for_status()
-                    
+
                     content = response.text
                     logger.info("http_request_success",
                               url=url,
                               status_code=response.status_code,
                               content_length=len(content))
-                    
+
                     return content
-                    
+
                 except httpx.HTTPStatusError as e:
                     logger.warning("http_status_error",
                                  url=url,
@@ -551,7 +551,7 @@ class HttpContentExtractor:
                         raise ContentExtractionError(
                             f"HTTP {e.response.status_code} error for {url}"
                         ) from e
-                        
+
                 except httpx.RequestError as e:
                     logger.warning("http_request_error",
                                  url=url,
@@ -561,13 +561,13 @@ class HttpContentExtractor:
                         raise ContentExtractionError(
                             f"Request failed for {url}: {e}"
                         ) from e
-                        
+
                 # Wait before retry (exponential backoff)
                 if attempt < self._max_retries - 1:
                     wait_time = 2 ** attempt
                     logger.info("http_retry_wait", url=url, wait_seconds=wait_time)
                     await asyncio.sleep(wait_time)
-        
+
         # Should never reach here due to the loop logic
         raise ContentExtractionError(f"Unexpected error extracting {url}")
 ```
@@ -594,20 +594,20 @@ def setup_logging(
 ) -> None:
     """
     Configure structured logging for the application.
-    
+
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR)
         json_logs: Whether to output JSON format (useful for production)
         service_name: Service identifier for log correlation
     """
-    
+
     # Configure stdlib logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=getattr(logging, level.upper())
     )
-    
+
     # Configure structlog processors
     processors = [
         structlog.stdlib.filter_by_level,
@@ -619,7 +619,7 @@ def setup_logging(
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
     ]
-    
+
     # Add service name to all logs
     processors.append(
         structlog.processors.CallsiteParameterAdder(
@@ -628,13 +628,13 @@ def setup_logging(
              structlog.processors.CallsiteParameterAdder.lineno}
         )
     )
-    
+
     # Choose output format
     if json_logs:
         processors.append(structlog.processors.JSONRenderer())
     else:
         processors.append(structlog.dev.ConsoleRenderer(colors=True))
-    
+
     # Configure structlog
     structlog.configure(
         processors=processors,
@@ -642,7 +642,7 @@ def setup_logging(
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # Add service context to all logs
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(service=service_name)
@@ -669,13 +669,13 @@ from pathlib import Path
 class Settings(BaseSettings):
     """
     Application settings with validation and environment variable support.
-    
+
     Settings can be provided via:
     1. Environment variables (prefixed with WEB_EXTRACTOR_)
     2. .env file
     3. Default values
     """
-    
+
     # HTTP Settings
     http_timeout: float = Field(
         default=30.0,
@@ -683,65 +683,65 @@ class Settings(BaseSettings):
         gt=0,
         le=300
     )
-    
+
     max_retries: int = Field(
         default=3,
         description="Maximum number of HTTP retry attempts",
         ge=0,
         le=10
     )
-    
+
     user_agent: str = Field(
         default="WebExtractor/1.0 (+https://github.com/company/web-extractor)",
         description="HTTP User-Agent header"
     )
-    
+
     # Application Settings
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="Logging level"
     )
-    
+
     json_logs: bool = Field(
         default=False,
         description="Output logs in JSON format (for production)"
     )
-    
+
     # Storage Settings
     output_directory: Path = Field(
         default=Path("./output"),
         description="Directory for output files"
     )
-    
+
     # Optional Azure Settings
     azure_storage_connection_string: Optional[str] = Field(
         default=None,
         description="Azure Storage connection string for blob storage"
     )
-    
+
     azure_storage_container: str = Field(
         default="extraction-results",
         description="Azure Storage container name"
     )
-    
+
     @validator('output_directory')
     def create_output_directory(cls, v):
         """Ensure output directory exists"""
         v.mkdir(parents=True, exist_ok=True)
         return v
-    
+
     @validator('user_agent')
     def user_agent_not_empty(cls, v):
         """Ensure user agent is not empty"""
         if not v.strip():
             raise ValueError('User agent cannot be empty')
         return v.strip()
-    
+
     class Config:
         env_file = ".env"
         env_prefix = "WEB_EXTRACTOR_"
         case_sensitive = False
-        
+
     def is_azure_storage_enabled(self) -> bool:
         """Check if Azure Storage is configured"""
         return self.azure_storage_connection_string is not None
@@ -787,31 +787,31 @@ logger = get_logger()
 @app.command()
 def extract(
     url: str = typer.Argument(..., help="URL to extract links from"),
-    
+
     format: str = typer.Option(
         "json",
         "--format", "-f",
         help="Output format: json, table, or console"
     ),
-    
+
     output_file: Optional[Path] = typer.Option(
         None,
         "--output", "-o",
         help="Save results to file (auto-detects format from extension)"
     ),
-    
+
     save_to_azure: bool = typer.Option(
         False,
         "--azure",
         help="Save results to Azure Blob Storage"
     ),
-    
+
     timeout: float = typer.Option(
         30.0,
         "--timeout", "-t",
         help="HTTP timeout in seconds"
     ),
-    
+
     verbose: bool = typer.Option(
         False,
         "--verbose", "-v",
@@ -820,20 +820,20 @@ def extract(
 ):
     """
     Extract and categorize links from a web page.
-    
+
     Examples:
         web-extractor https://example.com
         web-extractor https://example.com --format table --output results.json
         web-extractor https://example.com --azure --verbose
     """
-    
+
     # Setup logging
     log_level = "DEBUG" if verbose else "INFO"
     setup_logging(level=log_level)
-    
+
     # Override settings with CLI parameters
     settings = Settings(http_timeout=timeout)
-    
+
     # Run async extraction
     asyncio.run(_extract_async(url, format, output_file, save_to_azure, settings))
 
@@ -845,34 +845,34 @@ async def _extract_async(
     settings: Settings
 ):
     """Async extraction logic"""
-    
+
     try:
         # Create service container
         container = ServiceContainer.create_default(settings)
         service = container.create_extraction_service()
-        
+
         # Show progress
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             console=console
         ) as progress:
-            
+
             task = progress.add_task("Extracting content...", total=None)
-            
+
             # Perform extraction
             result = await service.extract_and_classify(url, save_result=save_to_azure)
-            
+
             progress.update(task, description="✅ Extraction complete!")
-        
+
         # Display results
         _display_results(result, format)
-        
+
         # Save to file if requested
         if output_file:
             _save_to_file(result, output_file)
             console.print(f"💾 Results saved to: {output_file}")
-        
+
     except Exception as e:
         console.print(f"❌ [red]Error:[/red] {e}")
         logger.error("extraction_failed", url=url, error=str(e))
@@ -880,7 +880,7 @@ async def _extract_async(
 
 def _display_results(result, format: str):
     """Display extraction results in specified format"""
-    
+
     if format == "table":
         _display_table(result)
     elif format == "json":
@@ -890,7 +890,7 @@ def _display_results(result, format: str):
 
 def _display_table(result):
     """Display results as a rich table"""
-    
+
     # Summary panel
     summary = Panel(
         f"🔗 Total Links: {result.total_links}\n"
@@ -901,26 +901,26 @@ def _display_table(result):
         border_style="blue"
     )
     console.print(summary)
-    
+
     # Links table
     if result.total_links > 0:
         table = Table(title="Extracted Links")
         table.add_column("Type", style="cyan", no_wrap=True)
         table.add_column("Text", style="white")
         table.add_column("URL", style="blue")
-        
+
         for link in result.pdf_links:
             table.add_row("📄 PDF", link.text[:50] + "..." if len(link.text) > 50 else link.text, str(link.url))
-        
+
         for link in result.youtube_links:
             table.add_row("🎥 YouTube", link.text[:50] + "..." if len(link.text) > 50 else link.text, str(link.url))
-        
+
         for link in result.other_links[:10]:  # Limit to first 10 for readability
             table.add_row("🌐 Other", link.text[:50] + "..." if len(link.text) > 50 else link.text, str(link.url))
-        
+
         if len(result.other_links) > 10:
             table.add_row("...", f"... and {len(result.other_links) - 10} more other links", "...")
-        
+
         console.print(table)
 
 @app.command()
@@ -930,25 +930,25 @@ def serve(
     reload: bool = typer.Option(False, help="Enable auto-reload for development")
 ):
     """Start a development server with HTTP API"""
-    
+
     try:
         import uvicorn
         from .api import create_app
-        
+
         setup_logging()
-        
+
         app = create_app()
-        
+
         console.print(f"🚀 Starting server at http://{host}:{port}")
         console.print(f"📖 API docs at http://{host}:{port}/docs")
-        
+
         uvicorn.run(
             app,
             host=host,
             port=port,
             reload=reload
         )
-        
+
     except ImportError:
         console.print("❌ [red]Error:[/red] FastAPI and uvicorn required for serve command")
         console.print("Install with: poetry add fastapi uvicorn")
@@ -960,10 +960,10 @@ async def demo():
     settings = Settings()
     container = ServiceContainer.create_default(settings)
     service = container.create_extraction_service()
-    
+
     demo_url = "https://httpbin.org/links/10/0"  # Simple test page
     result = await service.extract_and_classify(demo_url)
-    
+
     _display_table(result)
 
 def main():
@@ -1230,7 +1230,7 @@ def cleanup_test_files():
     # Cleanup code here if needed
     import shutil
     import os
-    
+
     test_dirs = ["./test_output", "./logs"]
     for dir_path in test_dirs:
         if os.path.exists(dir_path):
@@ -1247,33 +1247,33 @@ from src.core.exceptions import ExtractionError
 
 class TestExtractionService:
     """Test the core extraction service"""
-    
+
     async def test_successful_extraction(self, extraction_service, sample_extraction_result):
         """Test successful extraction workflow"""
         # Arrange
         test_url = "https://example.com"
-        
+
         # Act
         result = await extraction_service.extract_and_classify(test_url)
-        
+
         # Assert
         assert result.source_url == test_url
         assert result.total_links >= 0
         assert result.metadata is not None
         assert result.metadata.processing_time_seconds > 0
-    
+
     async def test_extraction_with_save(self, extraction_service):
         """Test extraction with result saving"""
         # Arrange
         test_url = "https://example.com"
-        
+
         # Act
         result = await extraction_service.extract_and_classify(test_url, save_result=True)
-        
+
         # Assert
         assert result is not None
         # Verify that storage was called (would need to check mock)
-    
+
     async def test_extraction_failure(self, mock_container):
         """Test extraction failure handling"""
         # Arrange
@@ -1281,7 +1281,7 @@ class TestExtractionService:
             side_effect=Exception("Network error")
         )
         service = mock_container.create_extraction_service()
-        
+
         # Act & Assert
         with pytest.raises(ExtractionError):
             await service.extract_and_classify("https://invalid.com")
@@ -1291,15 +1291,15 @@ class TestExtractionService:
         """Integration test with real HTTP request"""
         from src.container import ServiceContainer
         from src.settings import Settings
-        
+
         # Arrange
         settings = Settings(http_timeout=10.0)
         container = ServiceContainer.create_default(settings)
         service = container.create_extraction_service()
-        
+
         # Act
         result = await service.extract_and_classify("https://httpbin.org/links/3/0")
-        
+
         # Assert
         assert result.total_links >= 0
         assert result.metadata.processing_time_seconds > 0

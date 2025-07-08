@@ -2,17 +2,17 @@
 Azure Function Blob trigger for batch web content extraction.
 """
 import json
-import logging
-import time
 import os
-import asyncio
+import time
 
 import azure.functions as func
 import structlog
 
 from src.core import ExtractionService
 from src.infrastructure import (
-    AsyncHttpClient, BeautifulSoupLinkParser, RegexLinkClassifier
+    AsyncHttpClient,
+    BeautifulSoupLinkParser,
+    RegexLinkClassifier,
 )
 from src.infrastructure.cloud_storage import AzureBlobStorage
 from src.logging import setup_logging
@@ -38,7 +38,7 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
 
     try:
         # Read and parse blob content
-        blob_content = blob.read().decode('utf-8')
+        blob_content = blob.read().decode("utf-8")
         urls_data = json.loads(blob_content)
 
         # Ensure we have a list of URLs
@@ -55,10 +55,14 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
 
         if not urls:
             logger.warning("no_urls_found", blob_name=blob.name)
-            outputBlob.set(json.dumps({
-                "error": "No valid URLs found in input blob",
-                "blob_name": blob.name
-            }))
+            outputBlob.set(
+                json.dumps(
+                    {
+                        "error": "No valid URLs found in input blob",
+                        "blob_name": blob.name,
+                    }
+                )
+            )
             return
 
         logger.info("processing_urls", count=len(urls), blob_name=blob.name)
@@ -81,7 +85,7 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
             content_extractor=http_client,
             link_parser=link_parser,
             link_classifier=link_classifier,
-            result_storage=storage
+            result_storage=storage,
         )
 
         # Process each URL
@@ -103,8 +107,8 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
                     "links": {
                         "pdf": [link.model_dump() for link in result.pdf_links],
                         "youtube": [link.model_dump() for link in result.youtube_links],
-                        "other": [link.model_dump() for link in result.other_links]
-                    }
+                        "other": [link.model_dump() for link in result.other_links],
+                    },
                 }
 
                 results.append(result_data)
@@ -112,10 +116,7 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
 
             except Exception as e:
                 logger.error("url_processing_error", url=url, error=str(e))
-                errors.append({
-                    "url": url,
-                    "error": str(e)
-                })
+                errors.append({"url": url, "error": str(e)})
 
         # Create output
         output = {
@@ -123,7 +124,7 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
             "error_count": len(errors),
             "results": results,
             "errors": errors,
-            "processing_time_seconds": time.time() - start_time
+            "processing_time_seconds": time.time() - start_time,
         }
 
         # Write output blob
@@ -133,13 +134,17 @@ async def main(blob: func.InputStream, outputBlob: func.Out[str]) -> None:
             "blob_processing_completed",
             processed_count=len(results),
             error_count=len(errors),
-            processing_time=f"{time.time() - start_time:.2f}s"
+            processing_time=f"{time.time() - start_time:.2f}s",
         )
 
     except Exception as e:
         logger.error("blob_processing_failed", blob_name=blob.name, error=str(e))
-        outputBlob.set(json.dumps({
-            "error": str(e),
-            "blob_name": blob.name,
-            "processing_time_seconds": time.time() - start_time
-        }))
+        outputBlob.set(
+            json.dumps(
+                {
+                    "error": str(e),
+                    "blob_name": blob.name,
+                    "processing_time_seconds": time.time() - start_time,
+                }
+            )
+        )

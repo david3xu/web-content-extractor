@@ -1,28 +1,36 @@
 """
 Pytest configuration and fixtures.
 """
-import pytest
 import tempfile
+from collections.abc import Generator
+from datetime import datetime
 from pathlib import Path
+from typing import Any, TypeVar
 
+import pytest
+
+from src.core.exceptions import ExtractionContext
+from src.core.value_objects import CorrelationId, SourceUrl
 from src.logging import setup_logging
 
+_T = TypeVar("_T")
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_logging():
+
+@pytest.fixture(scope="session", autouse=True)  # type: ignore[misc]
+def setup_test_logging() -> None:
     """Set up logging for tests."""
     setup_logging(level="WARNING", json_logs=False)
 
 
-@pytest.fixture
-def temp_output_dir():
+@pytest.fixture  # type: ignore[misc]
+def temp_output_dir() -> Generator[Path, Any, None]:
     """Create a temporary output directory for tests."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield Path(temp_dir)
 
 
-@pytest.fixture
-def sample_html_content():
+@pytest.fixture  # type: ignore[misc]
+def sample_html_content() -> str:
     """Sample HTML content for testing."""
     return """
     <html>
@@ -61,36 +69,36 @@ def sample_html_content():
     """
 
 
-@pytest.fixture
-def sample_urls():
+@pytest.fixture  # type: ignore[misc]
+def sample_urls() -> list[str]:
     """Sample URLs for testing."""
     return [
         "https://example.com",
         "https://python.org",
         "https://github.com",
-        "https://stackoverflow.com"
+        "https://stackoverflow.com",
     ]
 
 
-@pytest.fixture
-def sample_correlation_id():
+@pytest.fixture  # type: ignore[misc]
+def sample_correlation_id() -> CorrelationId:
     """Sample correlation ID for testing."""
-    from src.core.value_objects import CorrelationId
     return CorrelationId.generate()
 
-@pytest.fixture
-def sample_source_url():
+
+@pytest.fixture  # type: ignore[misc]
+def sample_source_url() -> SourceUrl:
     """Sample source URL for testing."""
-    from src.core.value_objects import SourceUrl
     return SourceUrl.from_string("https://example.com")
 
-@pytest.fixture
-def sample_extraction_context(sample_correlation_id):
+
+@pytest.fixture  # type: ignore[misc]
+def sample_extraction_context(
+    sample_correlation_id: "CorrelationId",
+) -> ExtractionContext:
     """Sample extraction context for testing."""
-    from src.core.exceptions import ExtractionContext
-    from datetime import datetime
     return ExtractionContext(
         url="https://example.com",
         correlation_id=sample_correlation_id,
-        start_time=datetime.now()
+        start_time=datetime.now(),
     )

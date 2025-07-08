@@ -2,15 +2,14 @@
 Async HTTP client for web content extraction.
 """
 import asyncio
-from typing import Optional, Dict, Any
+from datetime import datetime
 
 import httpx
 import structlog
 
-from src.core.interfaces import ContentExtractor
 from src.core.exceptions import ContentExtractionError, ExtractionContext
+from src.core.interfaces import ContentExtractor
 from src.core.value_objects import CorrelationId
-from datetime import datetime
 from src.settings import settings
 
 logger = structlog.get_logger(__name__)
@@ -25,10 +24,10 @@ class AsyncHttpClient(ContentExtractor):
 
     def __init__(
         self,
-        timeout: float = None,
-        max_retries: int = None,
-        user_agent: str = None,
-        headers: Optional[Dict[str, str]] = None
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        user_agent: str | None = None,
+        headers: dict[str, str] | None = None,
     ):
         self.timeout = timeout or settings.http_timeout
         self.max_retries = max_retries or settings.max_retries
@@ -53,10 +52,12 @@ class AsyncHttpClient(ContentExtractor):
             url=url,
             correlation_id=correlation_id,
             start_time=datetime.now(),
-            user_agent=self.user_agent
+            user_agent=self.user_agent,
         )
 
-        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True
+        ) as client:
             for attempt in range(1, self.max_retries + 1):
                 try:
                     response = await client.get(url, headers=self._headers)
@@ -69,10 +70,10 @@ class AsyncHttpClient(ContentExtractor):
                         url=url,
                         content_length=content_length,
                         status_code=response.status_code,
-                        correlation_id=str(correlation_id)
+                        correlation_id=str(correlation_id),
                     )
 
-                    return response.text
+                    return str(response.text)
 
                 except httpx.TimeoutException as e:
                     logger.warning(
@@ -80,16 +81,14 @@ class AsyncHttpClient(ContentExtractor):
                         url=url,
                         attempt=attempt,
                         max_retries=self.max_retries,
-                        correlation_id=str(correlation_id)
+                        correlation_id=str(correlation_id),
                     )
 
                     if attempt < self.max_retries:
-                        await asyncio.sleep(2 ** attempt)  # exponential backoff
+                        await asyncio.sleep(2**attempt)  # exponential backoff
                     else:
                         raise ContentExtractionError(
-                            f"Timeout extracting content from {url}",
-                            context,
-                            cause=e
+                            f"Timeout extracting content from {url}", context, cause=e
                         ) from e
 
                 except httpx.HTTPStatusError as e:
@@ -98,24 +97,31 @@ class AsyncHttpClient(ContentExtractor):
                         url=url,
                         status_code=e.response.status_code,
                         attempt=attempt,
-                        correlation_id=str(correlation_id)
+                        correlation_id=str(correlation_id),
                     )
 
-                    if 500 <= e.response.status_code < 600 and attempt < self.max_retries:
-                        await asyncio.sleep(2 ** attempt)
+                    if (
+                        500 <= e.response.status_code < 600
+                        and attempt < self.max_retries
+                    ):
+                        await asyncio.sleep(2**attempt)
                     else:
                         raise ContentExtractionError(
                             f"HTTP error {e.response.status_code} extracting content from {url}",
                             context,
-                            cause=e
+                            cause=e,
                         ) from e
 
                 except httpx.HTTPError as e:
-                    logger.error("http_exception", url=url, error=str(e), attempt=attempt, correlation_id=str(correlation_id))
+                    logger.error(
+                        "http_exception",
+                        url=url,
+                        error=str(e),
+                        attempt=attempt,
+                        correlation_id=str(correlation_id),
+                    )
                     raise ContentExtractionError(
-                        f"HTTP error extracting content from {url}",
-                        context,
-                        cause=e
+                        f"HTTP error extracting content from {url}", context, cause=e
                     ) from e
 
         # This should not be reached due to exceptions above

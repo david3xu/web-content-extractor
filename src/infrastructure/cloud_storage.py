@@ -1,18 +1,15 @@
 """
 Cloud storage implementation using Azure Blob Storage.
 """
-import json
 from datetime import datetime
-from typing import Optional
-from urllib.parse import urlparse
 
-import structlog
 import azure.core.exceptions
+import structlog
 from azure.storage.blob import BlobServiceClient, ContentSettings
 
+from src.core.exceptions import ResultStorageError
 from src.core.interfaces import ResultStorage
 from src.core.models import ExtractionResult
-from src.core.exceptions import ResultStorageError
 from src.settings import settings
 
 logger = structlog.get_logger(__name__)
@@ -27,10 +24,12 @@ class AzureBlobStorage(ResultStorage):
 
     def __init__(
         self,
-        connection_string: Optional[str] = None,
-        container_name: Optional[str] = None
+        connection_string: str | None = None,
+        container_name: str | None = None,
     ):
-        self.connection_string = connection_string or settings.azure_storage_connection_string
+        self.connection_string = (
+            connection_string or settings.azure_storage_connection_string
+        )
         self.container_name = container_name or settings.azure_storage_container
 
         if not self.connection_string:
@@ -53,9 +52,13 @@ class AzureBlobStorage(ResultStorage):
 
         except Exception as e:
             logger.error("azure_storage_init_failed", error=str(e))
-            raise ResultStorageError(f"Failed to initialize Azure Blob Storage: {e}") from e
+            raise ResultStorageError(
+                f"Failed to initialize Azure Blob Storage: {e}"
+            ) from e
 
-    async def save_result(self, result: ExtractionResult, filename: Optional[str] = None) -> str:
+    async def save_result(
+        self, result: ExtractionResult, filename: str | None = None
+    ) -> str:
         """
         Save extraction result to Azure Blob Storage.
 
@@ -72,13 +75,13 @@ class AzureBlobStorage(ResultStorage):
         try:
             # Generate blob name if not provided
             if filename is None:
-                domain = result.source_url.host.replace("www.", "")
+                domain = result.source_url.get_domain()
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"extraction_{domain}_{timestamp}.json"
 
             # Make sure filename has .json extension
-            if not filename.endswith('.json'):
-                filename += '.json'
+            if not filename.endswith(".json"):
+                filename += ".json"
 
             # Convert result to JSON
             result_json = result.model_dump_json(indent=2)
@@ -89,17 +92,17 @@ class AzureBlobStorage(ResultStorage):
             blob_client.upload_blob(
                 result_json,
                 overwrite=True,
-                content_settings=ContentSettings(content_type='application/json')
+                content_settings=ContentSettings(content_type="application/json"),
             )
 
             # Get blob URL
-            blob_url = blob_client.url
+            blob_url = str(blob_client.url)
 
             logger.info(
                 "result_saved_to_azure",
                 container=self.container_name,
                 blob=filename,
-                size=len(result_json)
+                size=len(result_json),
             )
 
             return blob_url
@@ -107,10 +110,17 @@ class AzureBlobStorage(ResultStorage):
         except azure.core.exceptions.ResourceExistsError:
             # Handle case when blob already exists (unlikely with timestamp)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            new_filename = f"{filename.rsplit('.', 1)[0]}_{timestamp}.json"
-            logger.warning("blob_already_exists_retrying", original=filename, new=new_filename)
+            if filename is not None:
+                new_filename = f"{filename.rsplit('.', 1)[0]}_{timestamp}.json"
+            else:
+                new_filename = f"extraction_unknown_{timestamp}.json"
+            logger.warning(
+                "blob_already_exists_retrying", original=filename, new=new_filename
+            )
             return await self.save_result(result, new_filename)
 
         except Exception as e:
             logger.error("azure_save_failed", error=str(e))
-            raise ResultStorageError(f"Failed to save result to Azure Blob Storage: {e}") from e
+            raise ResultStorageError(
+                f"Failed to save result to Azure Blob Storage: {e}"
+            ) from e

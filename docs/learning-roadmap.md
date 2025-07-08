@@ -9,7 +9,7 @@ Start with working code, then progressively add professional layers while mainta
 
 ## 📚 Learning Progression (6 Phases)
 
-### **Phase 1: The 10-Minute Prototype** 
+### **Phase 1: The 10-Minute Prototype**
 *"Get something working first"*
 
 #### Concepts Introduced:
@@ -27,17 +27,17 @@ from bs4 import BeautifulSoup
 def extract_links(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    
+
     pdf_links = []
     youtube_links = []
-    
+
     for link in soup.find_all('a', href=True):
         href = link['href']
         if '.pdf' in href:
             pdf_links.append(href)
         elif 'youtube.com' in href:
             youtube_links.append(href)
-    
+
     return pdf_links, youtube_links
 
 # Usage
@@ -124,10 +124,10 @@ web-extractor/
 def test_pdf_link_detection():
     # Arrange
     html = '<a href="document.pdf">Download PDF</a>'
-    
+
     # Act
     result = extract_links_from_html(html)
-    
+
     # Assert
     assert len(result.pdf_links) == 1
     assert 'document.pdf' in result.pdf_links[0]
@@ -178,8 +178,8 @@ CMD ["python", "-m", "src.main"]
 def main():                    # Local version
     args = parse_args()
     result = extract(args.url)
-    
-@app.route("extract")          # Cloud version  
+
+@app.route("extract")          # Cloud version
 def azure_extract(req):
     url = req.get_json()['url']
     result = extract(url)        # Same core logic!
@@ -214,7 +214,7 @@ def azure_extract(req):
 #### **Milestone-Based Learning:**
 ```
 Week 1: Working prototype
-Week 2: Clean, testable code  
+Week 2: Clean, testable code
 Week 3: Professional structure
 Week 4: Containerized application
 Week 5: Cloud deployment
@@ -260,7 +260,7 @@ Production:     HTTP → Load Balancer → Functions → Storage → Monitoring
 #### **Technology Stack Visualization:**
 ```
 Frontend: CLI / HTTP API
-Business: Python Services  
+Business: Python Services
 Data: JSON / YAML
 Infrastructure: Docker / Azure
 ```
@@ -272,7 +272,7 @@ Infrastructure: Docker / Azure
 # Good (works)
 links = soup.find_all('a')
 
-# Better (organized)  
+# Better (organized)
 class LinkExtractor:
     def extract_links(self, soup): pass
 
@@ -280,7 +280,7 @@ class LinkExtractor:
 class LinkExtractor:
     def __init__(self, config: Settings):
         self.config = config
-    
+
     def extract_links(self, soup: BeautifulSoup) -> List[ExtractedLink]:
         # Type hints, error handling, logging
 ```
@@ -292,7 +292,7 @@ class LinkExtractor:
 Problem → Solution → Technology
 ─────────────────────────────────
 "Code breaks in production" → Testing → pytest
-"Different team environments" → Containerization → Docker  
+"Different team environments" → Containerization → Docker
 "Manual deployment errors" → Automation → Azure Functions
 "Lost extraction results" → Persistence → Blob Storage
 "Can't find bugs" → Monitoring → Application Insights
@@ -342,7 +342,7 @@ Problem → Solution → Technology
 - Show immediate practical value
 - Focus on problem-solving, not syntax
 
-#### **Week 3-4: Build Confidence**  
+#### **Week 3-4: Build Confidence**
 - Introduce one professional practice at a time
 - Explain the "why" behind each decision
 - Refactor existing code together
@@ -357,7 +357,7 @@ Problem → Solution → Technology
 #### **Daily Practice:**
 ```
 Day 1: Run the prototype
-Day 2: Understand each function  
+Day 2: Understand each function
 Day 3: Add a new feature
 Day 4: Write tests for new feature
 Day 5: Containerize the application
@@ -379,7 +379,7 @@ Week 4: Monitor and optimize
 
 #### **Technical Skills:**
 - Build professional Python applications
-- Use modern development tools confidently  
+- Use modern development tools confidently
 - Deploy applications to cloud platforms
 - Debug issues across the entire stack
 
