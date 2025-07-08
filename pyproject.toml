@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "web-content-extractor"
+version = "1.0.0"
+description = "Professional web content extraction and link categorization"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+license = {text = "MIT"}
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "pyyaml>=6.0",
+    "urllib3>=2.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0"
+]
+azure = [
+    "azure-functions>=1.18.0",
+    "azure-storage-blob>=12.19.0"
+]
+
+[project.scripts]
+web-extractor = "src.main:main"
