@@ -70,3 +70,27 @@ def sample_urls():
         "https://github.com",
         "https://stackoverflow.com"
     ]
+
+
+@pytest.fixture
+def sample_correlation_id():
+    """Sample correlation ID for testing."""
+    from src.core.value_objects import CorrelationId
+    return CorrelationId.generate()
+
+@pytest.fixture
+def sample_source_url():
+    """Sample source URL for testing."""
+    from src.core.value_objects import SourceUrl
+    return SourceUrl.from_string("https://example.com")
+
+@pytest.fixture
+def sample_extraction_context(sample_correlation_id):
+    """Sample extraction context for testing."""
+    from src.core.exceptions import ExtractionContext
+    from datetime import datetime
+    return ExtractionContext(
+        url="https://example.com",
+        correlation_id=sample_correlation_id,
+        start_time=datetime.now()
+    )

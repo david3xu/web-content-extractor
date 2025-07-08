@@ -8,7 +8,9 @@ import structlog
 from bs4 import BeautifulSoup
 
 from src.core.interfaces import LinkParser
-from src.core.exceptions import LinkParsingError
+from src.core.exceptions import LinkParsingError, ExtractionContext
+from src.core.value_objects import CorrelationId
+from datetime import datetime
 
 logger = structlog.get_logger(__name__)
 
@@ -22,17 +24,7 @@ class BeautifulSoupLinkParser(LinkParser):
 
     def parse_links(self, content: str, base_url: str) -> List[Tuple[str, str]]:
         """
-        Parse links from HTML content.
-
-        Args:
-            content: HTML content as string
-            base_url: Base URL for resolving relative links
-
-        Returns:
-            List of tuples containing (url, link_text)
-
-        Raises:
-            LinkParsingError: If parsing fails
+        Parse links from HTML content with enhanced error context.
         """
         try:
             soup = BeautifulSoup(content, 'html.parser')
@@ -71,7 +63,12 @@ class BeautifulSoupLinkParser(LinkParser):
 
         except Exception as e:
             logger.error("parsing_failed", error=str(e), base_url=base_url)
-            raise LinkParsingError(f"Failed to parse links from {base_url}: {e}") from e
+            context = ExtractionContext(
+                url=base_url,
+                correlation_id=CorrelationId.generate(),
+                start_time=datetime.now()
+            )
+            raise LinkParsingError(f"Failed to parse links from {base_url}", context, e) from e
 
     def _is_valid_url(self, url: str) -> bool:
         """

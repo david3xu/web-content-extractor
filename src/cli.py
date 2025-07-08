@@ -16,6 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.syntax import Syntax
 
 from src.core import ExtractionService
+from src.core.exceptions import ContextualExtractionError
 from src.infrastructure import (
     AsyncHttpClient, BeautifulSoupLinkParser, RegexLinkClassifier,
     OutputFormatters, OutputFormat, LocalFileStorage
@@ -86,6 +87,13 @@ def extract_command(
             else:
                 console.print(formatted_output)
 
+    except ContextualExtractionError as e:
+        console.print(f"\n❌ [bold red]Extraction Error:[/bold red] {e}")
+        if verbose:
+            debug_info = e.get_debug_info()
+            console.print(f"🔍 [dim]Correlation ID: {debug_info['context']['correlation_id']}[/dim]")
+            console.print(f"🔍 [dim]Elapsed time: {debug_info['context']['elapsed_time']:.2f}s[/dim]")
+        sys.exit(1)
     except Exception as e:
         console.print(f"\n❌ [bold red]Error:[/bold red] {e}")
         if verbose:

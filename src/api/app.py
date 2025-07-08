@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, HttpUrl, Field
 
 from src.core import ExtractionService, ExtractionResult, LinkType
+from src.core.exceptions import ContextualExtractionError
 from src.infrastructure import (
     AsyncHttpClient,
     BeautifulSoupLinkParser,
@@ -164,6 +165,19 @@ async def extract(
 
         return response
 
+    except ContextualExtractionError as e:
+        logger.error("extraction_api_error",
+                    url=str(request.url),
+                    correlation_id=str(e.context.correlation_id),
+                    error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "correlation_id": str(e.context.correlation_id),
+                "type": "extraction_error"
+            }
+        )
     except Exception as e:
         logger.error("extraction_api_error", url=str(request.url), error=str(e))
         raise HTTPException(status_code=500, detail=str(e))

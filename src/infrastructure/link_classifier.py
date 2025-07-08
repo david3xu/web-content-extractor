@@ -8,7 +8,9 @@ import structlog
 
 from src.core.interfaces import LinkClassifier
 from src.core.models import ExtractedLink, LinkType
-from src.core.exceptions import LinkClassificationError
+from src.core.exceptions import LinkClassificationError, ExtractionContext
+from src.core.value_objects import CorrelationId
+from datetime import datetime
 
 logger = structlog.get_logger(__name__)
 
@@ -37,31 +39,27 @@ class RegexLinkClassifier(LinkClassifier):
 
     def classify_links(self, links: List[Tuple[str, str]]) -> List[ExtractedLink]:
         """
-        Classify links into predefined categories.
-
-        Args:
-            links: List of (url, text) tuples
-
-        Returns:
-            List of ExtractedLink objects with assigned types
-
-        Raises:
-            LinkClassificationError: If classification fails
+        Classify links using factory methods and enhanced error context.
         """
         try:
             classified_links = []
 
             for url, text in links:
-                link_type = self._determine_link_type(url, text)
+                try:
+                    # Use factory methods instead of direct construction
+                    if any(pattern.search(url) for pattern in self._pdf_patterns):
+                        link = ExtractedLink.create_pdf_link(url, text)
+                    elif any(pattern.search(url) for pattern in self._youtube_patterns):
+                        link = ExtractedLink.create_youtube_link(url, text)
+                    else:
+                        link = ExtractedLink.create_other_link(url, text)
 
-                extracted_link = ExtractedLink(
-                    url=url,
-                    link_text=text or url,
-                    link_type=link_type,
-                    is_valid=True
-                )
+                    classified_links.append(link)
 
-                classified_links.append(extracted_link)
+                except ValueError as e:
+                    # Skip invalid links but log the issue
+                    logger.warning("invalid_link_skipped", url=url, error=str(e))
+                    continue
 
             # Log classification stats
             type_counts = self._count_by_type(classified_links)
@@ -77,7 +75,12 @@ class RegexLinkClassifier(LinkClassifier):
 
         except Exception as e:
             logger.error("classification_failed", error=str(e))
-            raise LinkClassificationError(f"Failed to classify links: {e}") from e
+            context = ExtractionContext(
+                url="batch_classification",
+                correlation_id=CorrelationId.generate(),
+                start_time=datetime.now()
+            )
+            raise LinkClassificationError("Failed to classify links", context, e) from e
 
     def _determine_link_type(self, url: str, text: str) -> LinkType:
         """

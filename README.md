@@ -313,6 +313,11 @@ make format
 # Lint code
 make lint
 
+# Run model and enhancement tests
+make test-models           # Run unit tests for value objects and enhanced models
+make test-enhancements     # Run all model enhancement tests (pytest markers)
+make verify-enhancements   # Format, lint, and test all model enhancements
+
 # Verify setup
 make verify
 ```

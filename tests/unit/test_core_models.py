@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from src.core.models import (
     LinkType, ExtractedLink, ExtractionMetadata, ExtractionResult
 )
+from src.core.value_objects import SourceUrl, ProcessingTime, CorrelationId
 
 
 class TestLinkType:
@@ -112,26 +113,24 @@ class TestExtractionResult:
 
     def test_valid_extraction_result(self):
         """Test creating a valid ExtractionResult."""
-        pdf_link = ExtractedLink(
-            url="https://example.com/doc.pdf",
-            link_text="PDF Document",
-            link_type=LinkType.PDF
+        pdf_link = ExtractedLink.create_pdf_link(
+            "https://example.com/doc.pdf",
+            "PDF Document"
         )
 
-        youtube_link = ExtractedLink(
-            url="https://youtube.com/watch?v=123",
-            link_text="Video Tutorial",
-            link_type=LinkType.YOUTUBE
+        youtube_link = ExtractedLink.create_youtube_link(
+            "https://youtube.com/watch?v=123",
+            "Video Tutorial"
         )
 
         result = ExtractionResult(
-            source_url="https://example.com",
+            source_url=SourceUrl.from_string("https://example.com"),
             pdf_links=[pdf_link],
             youtube_links=[youtube_link],
             other_links=[]
         )
 
-        assert result.source_url == "https://example.com"
+        assert str(result.source_url.value) == "https://example.com"
         assert len(result.pdf_links) == 1
         assert len(result.youtube_links) == 1
         assert len(result.other_links) == 0

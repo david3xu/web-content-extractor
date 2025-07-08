@@ -17,6 +17,14 @@ test: ## Run test suite with coverage
 	@echo "🧪 Running tests..."
 	poetry run pytest tests/ -v --cov=src --cov-report=html --cov-report=term-missing
 
+test-models: ## Test enhanced models and value objects
+	@echo "🧪 Testing enhanced models..."
+	poetry run pytest tests/unit/test_value_objects.py tests/unit/test_enhanced_models.py -v
+
+test-enhancements: ## Test Step 1-3 improvements
+	@echo "🧪 Testing model enhancements..."
+	poetry run pytest -m "models or value_objects" -v
+
 run: ## Run extraction example
 	@echo "🔍 Running extraction example..."
 	poetry run python -c "import asyncio; from src.cli import demo; asyncio.run(demo())"
@@ -48,3 +56,9 @@ dev: ## Start development server
 verify: ## Verify project setup
 	@echo "🔍 Verifying project setup..."
 	python scripts/verify_setup.py
+
+verify-improvements: format lint test-step-improvements ## Verify all improvements
+	@echo "✅ All improvements verified!"
+
+verify-enhancements: format lint test-enhancements ## Verify model improvements
+	@echo "✅ Model enhancements verified!"
