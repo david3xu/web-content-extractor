@@ -4,6 +4,7 @@ Command-line interface for web content extraction.
 import asyncio
 import sys
 from pathlib import Path
+from typing import Optional
 
 import structlog
 import typer
@@ -18,10 +19,10 @@ from src.core.models import ExtractionResult
 from src.infrastructure import (
     AsyncHttpClient,
     BeautifulSoupLinkParser,
+    ContextAwareClassifier,
     LocalFileStorage,
     OutputFormat,
     OutputFormatters,
-    RegexLinkClassifier,
 )
 from src.logging import setup_logging
 from src.settings import settings
@@ -48,8 +49,7 @@ def extract_command(
         "-f",
         help="Output format (json, text, markdown, csv)",
     ),
-    output_file: Path
-    | None = typer.Option(
+    output_file: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Output file path (default: prints to console)"
     ),
     save_result: bool = typer.Option(
@@ -224,7 +224,7 @@ async def _extract(url: str, save_result: bool = False) -> ExtractionResult:
     # Create components
     http_client = AsyncHttpClient()
     link_parser = BeautifulSoupLinkParser()
-    link_classifier = RegexLinkClassifier()
+    link_classifier = ContextAwareClassifier()  # New implementation
     storage = LocalFileStorage()
 
     # Ensure output directory exists
@@ -274,7 +274,7 @@ async def demo(
     service = ExtractionService(
         content_extractor=AsyncHttpClient(),
         link_parser=BeautifulSoupLinkParser(),
-        link_classifier=RegexLinkClassifier(),
+        link_classifier=ContextAwareClassifier(),
         result_storage=LocalFileStorage(),
     )
 

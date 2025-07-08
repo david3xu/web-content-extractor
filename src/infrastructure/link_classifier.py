@@ -17,22 +17,27 @@ logger = structlog.get_logger(__name__)
 
 class RegexLinkClassifier(LinkClassifier):
     """
-    Link classifier based on regex patterns.
+    Link classifier using regular expressions.
 
     Implements the LinkClassifier protocol.
     """
 
     def __init__(self) -> None:
-        # Regex patterns for identifying link types
+        # EXISTING patterns
         self._pdf_patterns: list[Pattern[str]] = [
-            re.compile(r"\.pdf$", re.I)  # File extension
+            re.compile(r"\.pdf$", re.I),
+            # NEW: Add flexible PDF patterns
+            re.compile(r"\.pdf[?#]", re.I),  # PDFs with query params
+            re.compile(r"pdf.*download", re.I),  # Download contexts
         ]
 
+        # EXISTING YouTube patterns
         self._youtube_patterns: list[Pattern[str]] = [
-            re.compile(r"youtube\.com/watch", re.I),  # YouTube watch
-            re.compile(r"youtu\.be/", re.I),  # YouTube short URL
-            re.compile(r"youtube\.com/embed/", re.I),  # YouTube embed
-            re.compile(r"youtube\.com/playlist", re.I),  # YouTube playlist
+            re.compile(r"youtube\.com/watch", re.I),
+            re.compile(r"youtu\.be/", re.I),
+            # NEW: Add embed patterns
+            re.compile(r"youtube\.com/embed/", re.I),
+            re.compile(r"youtube-nocookie\.com", re.I),
         ]
 
     def classify_links(self, links: list[tuple[str, str]]) -> list[ExtractedLink]:

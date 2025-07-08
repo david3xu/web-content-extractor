@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.core import ExtractionService
-from src.core.correlation_id import CorrelationId
+from src.core.value_objects import CorrelationId
 from src.core.exceptions import ContentExtractionError, ExtractionContext
 from src.core.models import LinkType
 from src.infrastructure import (
     AsyncHttpClient,
     BeautifulSoupLinkParser,
     LocalFileStorage,
-    RegexLinkClassifier,
+    ContextAwareClassifier,
 )
 
 
@@ -25,7 +25,7 @@ class TestExtractionServiceIntegration:
         """Set up test fixtures."""
         self.http_client = AsyncHttpClient()
         self.link_parser = BeautifulSoupLinkParser()
-        self.link_classifier = RegexLinkClassifier()
+        self.link_classifier = ContextAwareClassifier()
         self.storage = LocalFileStorage()
 
         self.service = ExtractionService(

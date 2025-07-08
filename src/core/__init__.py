@@ -11,6 +11,7 @@ from .exceptions import (
     ResultFormattingError,
     ResultStorageError,
 )
+from .interfaces import LinkClassifier, LinkParser
 from .models import ExtractedLink, ExtractionMetadata, ExtractionResult, LinkType
 from .service import ExtractionService
 from .value_objects import CorrelationId, ProcessingTime, SourceUrl

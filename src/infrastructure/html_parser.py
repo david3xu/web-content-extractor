@@ -34,36 +34,15 @@ class BeautifulSoupLinkParser(LinkParser):
 
             # Find all links (broad search for href or src attributes)
             links = []
-            for tag in soup.find_all(attrs={"href": True}) + soup.find_all(
-                attrs={"src": True}
-            ):
-                url = tag.get("href") or tag.get("src")
 
-                if not url:
-                    continue
+            # EXISTING: <a> tag extraction
+            links.extend(self._extract_anchor_links(soup, base_url))
 
-                url = url.strip()
+            # NEW: Add iframe sources (YouTube embeds)
+            links.extend(self._extract_iframe_sources(soup, base_url))
 
-                # Skip empty, javascript, and fragment-only links
-                if not url or url.startswith(("javascript:", "#", "mailto:", "tel:")):
-                    continue
-
-                # Resolve relative URLs to absolute
-                full_url = urljoin(base_url, url)
-
-                # Parse text (use tag text, title, img alt, or url as fallback)
-                link_text = tag.get_text(strip=True)
-                if not link_text:
-                    if tag.get("title"):
-                        link_text = tag["title"]
-                    elif tag.name == "img" and tag.get("alt"):
-                        link_text = tag["alt"]
-                    elif tag.find("img") and tag.find("img").get("alt"):
-                        link_text = tag.find("img")["alt"]
-                    else:
-                        link_text = full_url
-
-                links.append((full_url, link_text))
+            # NEW: Add embedded content
+            links.extend(self._extract_embedded_objects(soup, base_url))
 
             logger.debug("links_found", count=len(links), base_url=base_url)
             return links
@@ -78,6 +57,51 @@ class BeautifulSoupLinkParser(LinkParser):
             raise LinkParsingError(
                 f"Failed to parse links from {base_url}", context, e
             ) from e
+
+    def _extract_anchor_links(
+        self, soup: BeautifulSoup, base_url: str
+    ) -> list[tuple[str, str]]:
+        extracted = []
+        for tag in soup.find_all("a", href=True):
+            url = tag.get("href")
+            if not url or url.startswith(("javascript:", "#", "mailto:", "tel:")):
+                continue
+            full_url = urljoin(base_url, url)
+            link_text = tag.get_text(strip=True) or full_url
+            extracted.append((full_url, link_text))
+        return extracted
+
+    def _extract_iframe_sources(
+        self, soup: BeautifulSoup, base_url: str
+    ) -> list[tuple[str, str]]:
+        """Extract YouTube and other embedded content from iframes."""
+        extracted = []
+        for tag in soup.find_all("iframe", src=True):
+            url = tag.get("src")
+            if url:
+                full_url = urljoin(base_url, url)
+                if self._is_valid_url(full_url):
+                    extracted.append((full_url, full_url))  # Use full_url as text fallback
+        return extracted
+
+    def _extract_embedded_objects(
+        self, soup: BeautifulSoup, base_url: str
+    ) -> list[tuple[str, str]]:
+        """Extract PDF embeds and download elements from object and embed tags."""
+        extracted = []
+        for tag in soup.find_all("object", data=True):
+            url = tag.get("data")
+            if url:
+                full_url = urljoin(base_url, url)
+                if self._is_valid_url(full_url):
+                    extracted.append((full_url, full_url))  # Use full_url as text fallback
+        for tag in soup.find_all("embed", src=True):
+            url = tag.get("src")
+            if url:
+                full_url = urljoin(base_url, url)
+                if self._is_valid_url(full_url):
+                    extracted.append((full_url, full_url))  # Use full_url as text fallback
+        return extracted
 
     def _is_valid_url(self, url: str) -> bool:
         """

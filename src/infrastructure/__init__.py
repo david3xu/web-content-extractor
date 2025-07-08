@@ -1,6 +1,7 @@
 """
 Infrastructure implementations of core interfaces.
 """
+from .context_classifier import ContextAwareClassifier
 from .formatters import OutputFormat, OutputFormatters
 from .html_parser import BeautifulSoupLinkParser
 from .http_client import AsyncHttpClient
@@ -14,6 +15,7 @@ __all__ = [
     "OutputFormatters",
     "OutputFormat",
     "LocalFileStorage",
+    "ContextAwareClassifier",
 ]
 
 # Conditionally export AzureBlobStorage only if the package is available
