@@ -51,3 +51,26 @@ htmlcov/
 
 # Environment variables
 .env
+.env.local
+
+# Poetry
+poetry.lock
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Pre-commit
+.pre-commit-config.yaml.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,22 @@
+{
+    "scriptFile": "../../../src/functions/extract_http_trigger.py",
+    "entryPoint": "main",
+    "bindings": [
+      {
+        "authLevel": "function",
+        "type": "httpTrigger",
+        "direction": "in",
+        "name": "req",
+        "methods": [
+          "get",
+          "post"
+        ],
+        "route": "extract"
+      },
+      {
+        "type": "http",
+        "direction": "out",
+        "name": "$return"
+      }
+    ]
+}

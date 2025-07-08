@@ -5,26 +5,69 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: web-content-extractor
     ports:
       - "8000:8000"
+    environment:
+      - WEB_EXTRACTOR_LOG_LEVEL=INFO
+      - WEB_EXTRACTOR_JSON_LOGS=false
+      - WEB_EXTRACTOR_HTTP_TIMEOUT=30.0
+      - WEB_EXTRACTOR_MAX_RETRIES=3
+      - WEB_EXTRACTOR_OUTPUT_DIRECTORY=/app/output
+      # Azure Storage (comment out for local only)
+      #- WEB_EXTRACTOR_AZURE_STORAGE_CONNECTION_STRING=UseDevelopmentStorage=true
+      #- WEB_EXTRACTOR_AZURE_STORAGE_CONTAINER=extraction-results
     volumes:
       - ../output:/app/output
-    environment:
-      - LOG_LEVEL=INFO
-      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
-    command: "https://example.com --format json --output-file"
+      - ../logs:/app/logs
+    networks:
+      - extractor-network
     depends_on:
       - azurite
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client; conn = http.client.HTTPConnection('localhost', 8000); conn.request('GET', '/health'); response = conn.getresponse(); exit(0 if response.status == 200 else 1)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
-  # Azure Storage Emulator
+  # Azurite - Local Azure Storage Emulator
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
-    container_name: azurite
     ports:
       - "10000:10000" # Blob
       - "10001:10001" # Queue
       - "10002:10002" # Table
     volumes:
-      - ../azurite-data:/data
-    command: "azurite --silent --location /data --debug /data/debug.log --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+      - azurite_data:/data
+    networks:
+      - extractor-network
+    restart: unless-stopped
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --debug"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:10000/devstoreaccount1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  extractor-network:
+    driver: bridge
+
+volumes:
+  azurite_data:
