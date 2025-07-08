@@ -27,7 +27,7 @@ test-enhancements: ## Test Step 1-3 improvements
 
 run: ## Run extraction example
 	@echo "🔍 Running extraction example..."
-	poetry run python -c "import asyncio; from src.cli import demo; asyncio.run(demo())"
+	./scripts/run_demo.sh
 
 lint: ## Check code quality
 	@echo "🔍 Checking code quality..."
