@@ -4,7 +4,6 @@ Command-line interface for web content extraction.
 import asyncio
 import sys
 from pathlib import Path
-from typing import Optional
 
 import structlog
 import typer
@@ -49,7 +48,8 @@ def extract_command(
         "-f",
         help="Output format (json, text, markdown, csv)",
     ),
-    output_file: Optional[Path] = typer.Option(
+    output_file: Path
+    | None = typer.Option(
         None, "--output", "-o", help="Output file path (default: prints to console)"
     ),
     save_result: bool = typer.Option(
@@ -267,8 +267,12 @@ def _print_banner() -> None:
 
 async def demo(
     url: str = "https://www.python.org",
+    verbose: bool = False,  # Added verbose parameter
 ) -> None:  # Default URL for demonstration
     """Demonstrates the full extraction and classification process."""
+    # Configure logging based on verbose flag
+    setup_logging(level="DEBUG" if verbose else "INFO")
+
     console.print(Panel("[bold green]🔍 Running extraction example...[/bold green]"))
 
     service = ExtractionService(

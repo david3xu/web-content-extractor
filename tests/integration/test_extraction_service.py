@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.core import ExtractionService
-from src.core.value_objects import CorrelationId
 from src.core.exceptions import ContentExtractionError, ExtractionContext
 from src.core.models import LinkType
+from src.core.value_objects import CorrelationId
 from src.infrastructure import (
     AsyncHttpClient,
     BeautifulSoupLinkParser,
-    LocalFileStorage,
     ContextAwareClassifier,
+    LocalFileStorage,
 )
 
 

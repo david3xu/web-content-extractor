@@ -4,7 +4,6 @@ Local file storage implementation.
 import os
 from datetime import datetime
 from pathlib import Path
-import time # Added for sleep, removed for direct timestamp
 
 import structlog
 
@@ -57,7 +56,7 @@ class LocalFileStorage(ResultStorage):
         Raises:
             ResultStorageError: If saving fails
         """
-        max_retries = 1 # The test expects one retry (2 calls to open)
+        max_retries = 1  # The test expects one retry (2 calls to open)
         retries = 0
 
         while retries <= max_retries:
@@ -70,11 +69,13 @@ class LocalFileStorage(ResultStorage):
                         if result.source_url.value.host
                         else "unknown_domain"
                     )
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f") # Add microseconds for higher uniqueness
+                    timestamp = datetime.now().strftime(
+                        "%Y%m%d_%H%M%S_%f"
+                    )  # Add microseconds for higher uniqueness
 
-                    if filename is None: # If no initial filename provided
+                    if filename is None:  # If no initial filename provided
                         effective_filename = f"extraction_{domain}_{timestamp}.json"
-                    else: # If initial filename provided, append timestamp for retry
+                    else:  # If initial filename provided, append timestamp for retry
                         base, ext = os.path.splitext(filename)
                         effective_filename = f"{base}_{timestamp}{ext}"
 
@@ -93,11 +94,20 @@ class LocalFileStorage(ResultStorage):
 
             except FileExistsError as e:
                 # This block will be hit by the mock's side_effect
-                logger.warning("file_exists_on_save", path=str(file_path), error=str(e), retry_attempt=retries + 1)
+                logger.warning(
+                    "file_exists_on_save",
+                    path=str(file_path),
+                    error=str(e),
+                    retry_attempt=retries + 1,
+                )
                 retries += 1
-                if retries > max_retries: # If all retries exhausted
-                    logger.error("max_retries_reached_on_save", path=str(file_path), error=str(e))
-                    raise ResultStorageError(f"Failed to save result after {max_retries} attempts due to existing file: {e}") from e
+                if retries > max_retries:  # If all retries exhausted
+                    logger.error(
+                        "max_retries_reached_on_save", path=str(file_path), error=str(e)
+                    )
+                    raise ResultStorageError(
+                        f"Failed to save result after {max_retries} attempts due to existing file: {e}"
+                    ) from e
             except Exception as e:
                 logger.error("save_failed", error=str(e))
                 raise ResultStorageError(f"Failed to save result: {e}") from e

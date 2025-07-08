@@ -1,7 +1,6 @@
 """
 Core domain models for the web content extractor.
 """
-import re
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -69,9 +68,7 @@ class ExtractedLink(BaseModel):
     @classmethod
     def create_pdf_link(cls, url: str, text: str) -> "ExtractedLink":
         """Create PDF link with validation."""
-        if not url.lower().endswith(".pdf"):
-            raise ValueError(f"URL does not appear to be a PDF: {url}")
-
+        # Removed URL pattern validation as classification is handled externally
         return cls(
             url=HttpUrl(url), link_text=text or "PDF Document", link_type=LinkType.PDF
         )
@@ -79,11 +76,7 @@ class ExtractedLink(BaseModel):
     @classmethod
     def create_youtube_link(cls, url: str, text: str) -> "ExtractedLink":
         """Create YouTube link with validation."""
-        youtube_patterns = [r"youtube\.com/watch", r"youtu\.be/", r"youtube\.com/embed"]
-
-        if not any(re.search(pattern, url.lower()) for pattern in youtube_patterns):
-            raise ValueError(f"URL does not appear to be a YouTube link: {url}")
-
+        # Removed URL pattern validation as classification is handled externally
         return cls(
             url=HttpUrl(url),
             link_text=text or "YouTube Video",

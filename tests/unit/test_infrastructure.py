@@ -2,7 +2,7 @@
 Unit tests for infrastructure components.
 """
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -277,9 +277,15 @@ class TestLocalFileStorage:
             "pathlib.Path.exists", return_value=True
         ), patch("pathlib.Path.mkdir"):
             # Create a mock file object that supports context manager protocol
-            mock_file_instance_for_write = Mock() # This will be the 'f' in 'with open(...) as f:'
-            mock_file_succeed_instance = MagicMock() # This mocks the open() call itself
-            mock_file_succeed_instance.__enter__.return_value = mock_file_instance_for_write
+            mock_file_instance_for_write = (
+                Mock()
+            )  # This will be the 'f' in 'with open(...) as f:'
+            mock_file_succeed_instance = (
+                MagicMock()
+            )  # This mocks the open() call itself
+            mock_file_succeed_instance.__enter__.return_value = (
+                mock_file_instance_for_write
+            )
 
             # Simulate the initial file already existing, then succeed on retry
             mock_open.side_effect = [
@@ -292,7 +298,7 @@ class TestLocalFileStorage:
             # Expect a new filename with timestamp appended
             assert "existing_" in file_path and file_path.endswith(".json")
             assert mock_open.call_count == 2
-            mock_file_instance_for_write.write.assert_called_once() # Verify write on the inner mock
+            mock_file_instance_for_write.write.assert_called_once()  # Verify write on the inner mock
 
     @pytest.mark.asyncio  # type: ignore[misc]
     async def test_ensure_directory_exists(self) -> None:

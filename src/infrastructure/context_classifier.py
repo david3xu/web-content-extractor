@@ -1,5 +1,5 @@
-from typing import Pattern
 import re
+from re import Pattern
 
 from src.core.interfaces import LinkClassifier
 from src.core.models import ExtractedLink, LinkType
@@ -21,7 +21,9 @@ class ContextAwareClassifier(LinkClassifier):
             # NEW: Add embed patterns
             re.compile(r"youtube\.com/embed/", re.I),
             re.compile(r"youtube-nocookie\.com", re.I),
-            re.compile(r"cdn\.iframe\.ly/.*", re.I), # Broader pattern for iframe.ly YouTube embeds
+            re.compile(
+                r"cdn\.iframe\.ly/.*", re.I
+            ),  # Broader pattern for iframe.ly YouTube embeds
         ]
 
     def classify_links(self, links: list[tuple[str, str]]) -> list[ExtractedLink]:
@@ -39,11 +41,11 @@ class ContextAwareClassifier(LinkClassifier):
     def _classify_with_context(self, url: str, text: str) -> LinkType:
         """Enhanced classification using URL + text context"""
         # Check file size indicators: "3MB pdf"
-        if re.search(r'\d+\s*MB.*pdf', text, re.I):
+        if re.search(r"\d+\s*MB.*pdf", text, re.I):
             return LinkType.PDF
 
         # Check YouTube context
-        if 'youtube' in url.lower() or 'watch' in text.lower():
+        if "youtube" in url.lower() or "watch" in text.lower():
             return LinkType.YOUTUBE
 
         # Fallback to URL patterns

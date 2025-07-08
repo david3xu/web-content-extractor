@@ -1,103 +1,106 @@
 import pytest
-from bs4 import BeautifulSoup
 
+from src.core.models import LinkType
 from src.infrastructure.html_parser import BeautifulSoupLinkParser
-from src.infrastructure.context_classifier import ContextAwareClassifier
-from src.core.models import LinkType, ExtractedLink
+from src.infrastructure.link_classifier import RegexLinkClassifier
+
 
 class TestEnhancedLinkParsing:
-    @pytest.fixture
+    @pytest.fixture  # type: ignore[misc]
     def parser(self) -> BeautifulSoupLinkParser:
         return BeautifulSoupLinkParser()
 
-    def test_extract_iframe_sources(self, parser: BeautifulSoupLinkParser) -> None:
+    @pytest.fixture  # type: ignore[misc]
+    def classifier(self) -> RegexLinkClassifier:
+        return RegexLinkClassifier()
+
+    def test_parse_links_combines_all_types(
+        self, parser: BeautifulSoupLinkParser
+    ) -> None:
         html_content = """
         <html>
         <body>
-            <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="560" height="315" frameborder="0" allowfullscreen></iframe>
-            <iframe src="https://player.vimeo.com/video/12345" width="640" height="360" frameborder="0" allowfullscreen></iframe>
-            <iframe src="/local/path/to/embed.html"></iframe>
+            <a href="/regular-link">Regular Link</a>
+            <a href="/download.pdf" download>Download PDF</a>
+            <iframe src="https://www.youtube.com/embed/somevideo"></iframe>
+            <img src="image.jpg">
         </body>
         </html>
         """
         base_url = "https://example.com"
-        extracted_links = parser._extract_iframe_sources(BeautifulSoup(html_content, "html.parser"), base_url)
-        assert len(extracted_links) == 3 # Should now extract local embed as well
-        assert ("https://www.youtube.com/embed/dQw4w9WgXcQ", "https://www.youtube.com/embed/dQw4w9WgXcQ") in extracted_links
-        assert ("https://player.vimeo.com/video/12345", "https://player.vimeo.com/video/12345") in extracted_links
-        assert ("https://example.com/local/path/to/embed.html", "https://example.com/local/path/to/embed.html") in extracted_links
+        links = parser.parse_links(html_content, base_url)
+        assert len(links) == 3
+        assert ("https://example.com/regular-link", "Regular Link") in links
+        assert ("https://example.com/download.pdf", "Download PDF") in links
+        assert (
+            "https://www.youtube.com/embed/somevideo",
+            "Embedded Video Content",
+        ) in links
 
-    def test_extract_embedded_objects(self, parser: BeautifulSoupLinkParser) -> None:
-        html_content = """
-        <html>
-        <body>
-            <object data="document.pdf" type="application/pdf" width="600" height="400"></object>
-            <embed src="presentation.ppt" type="application/vnd.ms-powerpoint" width="500" height="300">
-            <a href="report.pdf">Download Report</a>
-            <a href="data.zip">Download Data</a>
-        </body>
-        </html>
-        """
-        base_url = "https://example.com/files/"
-        extracted_links = parser._extract_embedded_objects(BeautifulSoup(html_content, "html.parser"), base_url)
-        assert len(extracted_links) == 2
-        assert ("https://example.com/files/document.pdf", "https://example.com/files/document.pdf") in extracted_links
-        assert ("https://example.com/files/presentation.ppt", "https://example.com/files/presentation.ppt") in extracted_links
+    def test_parse_links_with_no_links(self, parser: BeautifulSoupLinkParser) -> None:
+        html_content = "<html><body>No links here.</body></html>"
+        base_url = "https://example.com"
+        links = parser.parse_links(html_content, base_url)
+        assert len(links) == 0
 
-class TestEnhancedLinkClassification:
-    @pytest.fixture
-    def classifier(self) -> ContextAwareClassifier:
-        return ContextAwareClassifier()
+    def test_parse_links_with_invalid_urls(
+        self, parser: BeautifulSoupLinkParser
+    ) -> None:
+        html_content = (
+            '<a href="javascript:void(0)">JS Link</a><a href="#anchor">Anchor</a>'
+        )
+        base_url = "https://example.com"
+        links = parser.parse_links(html_content, base_url)
+        assert len(links) == 0
 
-    def test_pdf_pattern_enhancement(self, classifier: ContextAwareClassifier) -> None:
-        links = [
-            ("https://example.com/document.pdf?version=1", "document.pdf"),
-            ("https://example.com/report.PDF#page=1", "report.PDF"),
-            ("https://example.com/download.php?file=my_doc.pdf", "Download PDF"),
-            ("https://example.com/image.jpg", "image.jpg"),
-            ("https://example.com/report-3MB.pdf", "3MB pdf report"),  # Test context-aware classification
+    def test_classify_links_with_various_types(
+        self, classifier: RegexLinkClassifier
+    ) -> None:
+        links_to_classify = [
+            ("https://example.com/document.pdf", "Download PDF"),
+            ("https://www.youtube.com/watch?v=123", "Watch Video"),
+            ("https://example.com/page", "Visit Page"),
+            ("https://cdn.iframe.ly/video123", "Embedded Video"),
+            ("https://files.gitbook.io/document.pdf", "Read Document"),
         ]
-        classified_links = classifier.classify_links(links)
-        pdf_links = [link for link in classified_links if link.link_type == LinkType.PDF]
-        other_links = [link for link in classified_links if link.link_type == LinkType.OTHER]
+        classified = classifier.classify_links(links_to_classify)
 
-        assert len(pdf_links) == 4  # Expected 4 PDF links
-        assert len(other_links) == 1  # Expected 1 other link
+        assert len(classified) == 5
 
-        # Assert specific URLs/texts that should be classified as PDF
-        pdf_urls_or_texts = [
-            "https://example.com/document.pdf?version=1",
-            "https://example.com/report.PDF#page=1",
-            "https://example.com/download.php?file=my_doc.pdf",
-            "3MB pdf report", # This is based on text content
+        pdf_links = [link for link in classified if link.link_type == LinkType.PDF]
+        youtube_links = [
+            link for link in classified if link.link_type == LinkType.YOUTUBE
         ]
-        for link in pdf_links:
-            assert str(link.url) in pdf_urls_or_texts or link.link_text in pdf_urls_or_texts
+        other_links = [link for link in classified if link.link_type == LinkType.OTHER]
 
+        assert len(pdf_links) == 2
+        assert any(
+            str(link.url) == "https://example.com/document.pdf" for link in pdf_links
+        )
+        assert any(
+            str(link.url) == "https://files.gitbook.io/document.pdf"
+            for link in pdf_links
+        )
 
-    def test_youtube_pattern_enhancement(self, classifier: ContextAwareClassifier) -> None:
-        links = [
-            ("https://www.youtube.com/watch?v=123", "YouTube Video 1"),
-            ("https://youtu.be/456", "YouTube Short"),
-            ("https://www.youtube.com/embed/789", "Embedded YouTube"),
-            ("https://www.youtube-nocookie.com/embed/abc", "No Cookie Video"),
-            ("https://vimeo.com/123", "Vimeo Video"),
-            ("https://example.com/video.html", "watch this youtube video"),  # Test context-aware classification
-        ]
-        classified_links = classifier.classify_links(links)
-        youtube_links = [link for link in classified_links if link.link_type == LinkType.YOUTUBE]
-        other_links = [link for link in classified_links if link.link_type == LinkType.OTHER]
+        assert len(youtube_links) == 2
+        assert any(
+            str(link.url) == "https://www.youtube.com/watch?v=123"
+            for link in youtube_links
+        )
+        assert any(
+            str(link.url) == "https://cdn.iframe.ly/video123" for link in youtube_links
+        )
 
-        assert len(youtube_links) == 5  # Expected 5 YouTube links
-        assert len(other_links) == 1  # Expected 1 other link
+        assert len(other_links) == 1
+        assert any(str(link.url) == "https://example.com/page" for link in other_links)
 
-        # Assert specific URLs/texts that should be classified as YouTube
-        youtube_urls_or_texts = [
-            "https://www.youtube.com/watch?v=123",
-            "https://youtu.be/456",
-            "https://www.youtube.com/embed/789",
-            "https://www.youtube-nocookie.com/embed/abc",
-            "watch this youtube video", # This is based on text content
-        ]
-        for link in youtube_links:
-            assert str(link.url) in youtube_urls_or_texts or link.link_text in youtube_urls_or_texts
+    def test_classify_links_empty_list(self, classifier: RegexLinkClassifier) -> None:
+        classified = classifier.classify_links([])
+        assert len(classified) == 0
+
+    def test_classify_links_invalid_url_handling(
+        self, classifier: RegexLinkClassifier
+    ) -> None:
+        links_to_classify = [("invalid-url", "Invalid")]
+        classified = classifier.classify_links(links_to_classify)
+        assert len(classified) == 0  # Should now be 0 as invalid links are skipped

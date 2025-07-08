@@ -2,15 +2,12 @@
 Link classifier implementation.
 """
 import re
-from datetime import datetime
 from re import Pattern
 
 import structlog
 
-from src.core.exceptions import ExtractionContext, LinkClassificationError
 from src.core.interfaces import LinkClassifier
 from src.core.models import ExtractedLink, LinkType
-from src.core.value_objects import CorrelationId
 
 logger = structlog.get_logger(__name__)
 
@@ -23,91 +20,85 @@ class RegexLinkClassifier(LinkClassifier):
     """
 
     def __init__(self) -> None:
-        # EXISTING patterns
-        self._pdf_patterns: list[Pattern[str]] = [
-            re.compile(r"\.pdf$", re.I),
-            # NEW: Add flexible PDF patterns
-            re.compile(r"\.pdf[?#]", re.I),  # PDFs with query params
-            re.compile(r"pdf.*download", re.I),  # Download contexts
-        ]
-
-        # EXISTING YouTube patterns
-        self._youtube_patterns: list[Pattern[str]] = [
-            re.compile(r"youtube\.com/watch", re.I),
-            re.compile(r"youtu\.be/", re.I),
-            # NEW: Add embed patterns
-            re.compile(r"youtube\.com/embed/", re.I),
-            re.compile(r"youtube-nocookie\.com", re.I),
-        ]
+        # OPTIMIZED: Combined efficient patterns
+        self._patterns: dict[LinkType, list[Pattern[str]]] = {
+            LinkType.PDF: [
+                re.compile(r"\.pdf[?&#]?", re.I),  # Covers all PDF cases
+                re.compile(r"download.*pdf", re.I),  # Download context
+            ],
+            LinkType.YOUTUBE: [
+                re.compile(
+                    r"(youtube|youtu\.be|iframe\.ly)", re.I
+                ),  # All video sources
+                re.compile(r"embed.*video", re.I),  # Generic embeds
+            ],
+        }
 
     def classify_links(self, links: list[tuple[str, str]]) -> list[ExtractedLink]:
-        """
-        Classify links using factory methods and enhanced error context.
-        """
-        try:
-            classified_links = []
+        """Streamlined classification"""
+        classified_links = []
+        for url, text in links:
+            # Skip invalid links that cannot be created by ExtractedLink
+            try:
+                classified_links.append(self._classify_single_link(url, text))
+            except ValueError as e:
+                logger.warning("link_classification_failed", url=url, error=str(e))
+                continue  # Skip the invalid link
 
-            for url, text in links:
-                logger.debug("classifying_link", url=url, text=text)
-                try:
-                    # Use factory methods instead of direct construction
-                    if any(pattern.search(url) for pattern in self._pdf_patterns):
-                        link = ExtractedLink.create_pdf_link(url, text)
-                    elif any(pattern.search(url) for pattern in self._youtube_patterns):
-                        link = ExtractedLink.create_youtube_link(url, text)
-                    else:
-                        link = ExtractedLink.create_other_link(url, text)
+        # Log classification stats
+        type_counts = self._count_by_type(classified_links)
+        logger.debug(
+            "links_classified",
+            total=len(classified_links),
+            pdf_count=type_counts.get(LinkType.PDF, 0),
+            youtube_count=type_counts.get(LinkType.YOUTUBE, 0),
+            other_count=type_counts.get(LinkType.OTHER, 0),
+        )
 
-                    classified_links.append(link)
+        return classified_links
 
-                except ValueError as e:
-                    # Skip invalid links but log the issue
-                    logger.warning("invalid_link_skipped", url=url, error=str(e))
-                    continue
+    def _classify_single_link(self, url: str, text: str) -> ExtractedLink:
+        """Single method handles all classification logic"""
+        link_type = self._get_type_from_patterns(url, text)
+        logger.debug(
+            "classifying_single_link",
+            url=url,
+            text=text,
+            determined_type=link_type.value,
+        )
 
-            # Log classification stats
-            type_counts = self._count_by_type(classified_links)
-            logger.debug(
-                "links_classified",
-                total=len(classified_links),
-                pdf_count=type_counts.get(LinkType.PDF, 0),
-                youtube_count=type_counts.get(LinkType.YOUTUBE, 0),
-                other_count=type_counts.get(LinkType.OTHER, 0),
-            )
+        # Factory methods handle validation
+        if link_type == LinkType.PDF:
+            return ExtractedLink.create_pdf_link(url, text)
+        elif link_type == LinkType.YOUTUBE:
+            return ExtractedLink.create_youtube_link(url, text)
+        else:
+            return ExtractedLink.create_other_link(url, text)
 
-            return classified_links
+    def _get_type_from_patterns(self, url: str, text: str) -> LinkType:
+        """Determine link type using optimized patterns and text context."""
+        text_lower = text.lower()
 
-        except Exception as e:
-            logger.error("classification_failed", error=str(e))
-            context = ExtractionContext(
-                url="batch_classification",
-                correlation_id=CorrelationId.generate(),
-                start_time=datetime.now(),
-            )
-            raise LinkClassificationError("Failed to classify links", context, e) from e
+        # Prioritize text-based classification
+        if any(
+            re.search(pattern, text_lower)
+            for pattern in self._patterns.get(LinkType.PDF, [])
+        ):
+            return LinkType.PDF
+        if any(
+            re.search(pattern, text_lower)
+            for pattern in self._patterns.get(LinkType.YOUTUBE, [])
+        ):
+            return LinkType.YOUTUBE
 
-    def _determine_link_type(self, url: str, text: str) -> LinkType:
-        """
-        Determine the link type based on URL and text.
+        # Fallback to URL pattern matching
+        if any(pattern.search(url) for pattern in self._patterns.get(LinkType.PDF, [])):
+            return LinkType.PDF
+        if any(
+            pattern.search(url) for pattern in self._patterns.get(LinkType.YOUTUBE, [])
+        ):
+            return LinkType.YOUTUBE
 
-        Args:
-            url: Link URL
-            text: Link text
-
-        Returns:
-            LinkType enum value
-        """
-        # Check for PDF links (URL only)
-        for pattern in self._pdf_patterns:
-            if pattern.search(url):
-                return LinkType.PDF
-
-        # Check for YouTube links
-        for pattern in self._youtube_patterns:
-            if pattern.search(url):
-                return LinkType.YOUTUBE
-
-        # Default to other
         return LinkType.OTHER
 
     def _count_by_type(self, links: list[ExtractedLink]) -> dict[LinkType, int]:
